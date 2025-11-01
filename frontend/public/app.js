@@ -1,8 +1,11 @@
 const API_BASE_URL = 'http://localhost:3000/api';
 
 let viewsChart = null;
+let rsiChart = null;
 let allChannels = [];
 let currentMetrics = [];
+let currentRsiData = {};
+let currentRsiPeriod = 14;
 
 const CHART_COLORS = [
   '#667eea',
@@ -207,7 +210,8 @@ async function fetchMetrics() {
     const params = new URLSearchParams({
       channel_ids: channelIds.join(','),
       start_date: startDate,
-      end_date: endDate
+      end_date: endDate,
+      rsi_period: currentRsiPeriod
     });
     
     const [metricsResponse, summaryResponse] = await Promise.all([
@@ -223,11 +227,13 @@ async function fetchMetrics() {
     const summaryResult = await summaryResponse.json();
     
     currentMetrics = metricsResult.data || [];
+    currentRsiData = metricsResult.rsi || {};
     
     if (currentMetrics.length === 0) {
       showNoData();
     } else {
       updateChart(currentMetrics);
+      updateRsiChart(currentRsiData, channelIds);
       updateSummaryStats(summaryResult.data, currentMetrics);
       document.getElementById('noDataMessage').style.display = 'none';
     }
@@ -247,6 +253,11 @@ function showNoData() {
   if (viewsChart) {
     viewsChart.destroy();
     viewsChart = null;
+  }
+  
+  if (rsiChart) {
+    rsiChart.destroy();
+    rsiChart = null;
   }
   
   resetSummaryStats();
@@ -376,6 +387,221 @@ function updateChart(metrics) {
           },
           grid: {
             color: 'rgba(0, 0, 0, 0.05)'
+          }
+        },
+        x: {
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45,
+            font: {
+              size: 10
+            }
+          },
+          grid: {
+            display: false
+          }
+        }
+      }
+    }
+  });
+}
+
+function updateRsiChart(rsiData, channelIds) {
+  const rsiToggle = document.getElementById('rsiToggle');
+  const rsiContainer = document.getElementById('rsiChartContainer');
+  
+  if (!rsiToggle.checked) {
+    rsiContainer.style.display = 'none';
+    if (rsiChart) {
+      rsiChart.destroy();
+      rsiChart = null;
+    }
+    return;
+  }
+  
+  rsiContainer.style.display = 'block';
+  
+  if (!rsiData || Object.keys(rsiData).length === 0) {
+    if (rsiChart) {
+      rsiChart.destroy();
+      rsiChart = null;
+    }
+    return;
+  }
+
+  const datasets = [];
+  let allDates = new Set();
+
+  channelIds.forEach((channelId, index) => {
+    const channelRsiData = rsiData[channelId];
+    if (!channelRsiData || channelRsiData.length === 0) {
+      return;
+    }
+
+    const channel = allChannels.find(c => c.id === parseInt(channelId));
+    const channelLabel = channel ? (channel.channel_name || channel.channel_handle) : `Channel ${channelId}`;
+    const color = CHART_COLORS[index % CHART_COLORS.length];
+
+    channelRsiData.forEach(item => allDates.add(item.date));
+
+    const dateMap = {};
+    channelRsiData.forEach(item => {
+      dateMap[item.date] = item.rsi;
+    });
+
+    const sortedDates = Array.from(allDates).sort();
+    const chartData = sortedDates.map(date => dateMap[date] !== undefined ? dateMap[date] : null);
+
+    datasets.push({
+      label: channelLabel,
+      data: chartData,
+      borderColor: color,
+      backgroundColor: color,
+      borderWidth: 2,
+      fill: false,
+      tension: 0.4,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      pointBackgroundColor: color,
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
+      spanGaps: true
+    });
+  });
+
+  const sortedDates = Array.from(allDates).sort();
+  const labels = sortedDates.map(date => formatDate(date));
+
+  if (rsiChart) {
+    rsiChart.destroy();
+  }
+
+  const ctx = document.getElementById('rsiChart').getContext('2d');
+  rsiChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 2.5,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            usePointStyle: true,
+            padding: 15,
+            font: {
+              size: 12,
+              weight: '500'
+            }
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          padding: 12,
+          titleFont: {
+            size: 14,
+            weight: 'bold'
+          },
+          bodyFont: {
+            size: 13
+          },
+          bodySpacing: 6,
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+              if (label) {
+                label += ': ';
+              }
+              const rsiValue = context.parsed.y;
+              label += rsiValue ? rsiValue.toFixed(2) : 'N/A';
+              
+              if (rsiValue >= 70) {
+                label += ' (Heated/Euphoric)';
+              } else if (rsiValue <= 30) {
+                label += ' (Cooling/Fear)';
+              }
+              
+              return label;
+            }
+          }
+        },
+        title: {
+          display: false
+        },
+        annotation: {
+          annotations: {
+            overboughtLine: {
+              type: 'line',
+              yMin: 70,
+              yMax: 70,
+              borderColor: 'rgba(255, 99, 132, 0.5)',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              label: {
+                content: 'Overbought (70)',
+                enabled: true,
+                position: 'end'
+              }
+            },
+            oversoldLine: {
+              type: 'line',
+              yMin: 30,
+              yMax: 30,
+              borderColor: 'rgba(75, 192, 192, 0.5)',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              label: {
+                content: 'Oversold (30)',
+                enabled: true,
+                position: 'end'
+              }
+            },
+            overboughtZone: {
+              type: 'box',
+              yMin: 70,
+              yMax: 100,
+              backgroundColor: 'rgba(255, 99, 132, 0.1)',
+              borderWidth: 0
+            },
+            oversoldZone: {
+              type: 'box',
+              yMin: 0,
+              yMax: 30,
+              backgroundColor: 'rgba(75, 192, 192, 0.1)',
+              borderWidth: 0
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: {
+            stepSize: 10,
+            callback: function(value) {
+              return value;
+            },
+            font: {
+              size: 11
+            }
+          },
+          grid: {
+            color: function(context) {
+              if (context.tick.value === 70 || context.tick.value === 30) {
+                return 'rgba(0, 0, 0, 0.2)';
+              }
+              return 'rgba(0, 0, 0, 0.05)';
+            }
           }
         },
         x: {
@@ -566,6 +792,21 @@ function setupEventListeners() {
   document.getElementById('applyFiltersBtn').addEventListener('click', fetchMetrics);
   
   document.getElementById('collectDataBtn').addEventListener('click', collectHistoricalData);
+  
+  document.getElementById('rsiPeriod').addEventListener('change', (e) => {
+    currentRsiPeriod = parseInt(e.target.value, 10);
+    const channelIds = getSelectedChannelIds();
+    if (currentMetrics.length > 0 && channelIds.length > 0) {
+      fetchMetrics();
+    }
+  });
+  
+  document.getElementById('rsiToggle').addEventListener('change', () => {
+    const channelIds = getSelectedChannelIds();
+    if (currentRsiData && Object.keys(currentRsiData).length > 0) {
+      updateRsiChart(currentRsiData, channelIds);
+    }
+  });
 }
 
 async function init() {
