@@ -11,7 +11,8 @@ YouTube promotional analytics and monitoring dashboard for tracking video perfor
 - RESTful API for data access
 - Interactive dashboard for monitoring
 - **Automated live stream metrics collection**
-- **Channel management CLI tools**
+- **Historical data collection via dashboard UI or CLI**
+- **Channel management via dashboard and CLI tools**
 - **Scheduled data collection support**
 
 ## Tech Stack
@@ -173,6 +174,7 @@ http://localhost:3000
 - `POST /api/channels` - Add a new channel to track (automatically resolves YouTube handle)
 - `GET /api/metrics` - Query live stream metrics with filters (channel_ids, start_date, end_date, limit)
 - `GET /api/metrics/summary` - Get aggregated summary statistics with trends and channel breakdowns
+- `POST /api/collect-metrics` - Trigger historical data collection (start_date, end_date, channel_ids)
 
 For detailed documentation, see [DASHBOARD_API.md](./DASHBOARD_API.md).
 
@@ -277,19 +279,34 @@ npm run manage-channels delete 1
 
 The metrics collection tool fetches live stream view counts from YouTube and stores them in the database.
 
+#### Two ways to collect data:
+
+**Option 1: Using the Dashboard (Easiest)**
+1. Open the dashboard at `http://localhost:3000`
+2. Add channels you want to track
+3. Use the "Collect Historical Data" section
+4. Select a date range and click "Collect Data"
+5. The dashboard will automatically refresh with the new data
+
+**Option 2: Using Command Line**
+
 #### Collect metrics for yesterday (default)
 ```bash
 npm run collect-metrics
 ```
 
-#### Collect metrics for a specific date
+#### Collect historical data for a specific date
 ```bash
-npm run collect-metrics -- --start-date 2024-01-15
+npm run collect-metrics -- --start-date 2024-10-15
 ```
 
-#### Collect metrics for a date range
+#### Collect historical data for a date range
 ```bash
-npm run collect-metrics -- --start-date 2024-01-01 --end-date 2024-01-31
+# Collect last 30 days
+npm run collect-metrics -- --start-date 2024-10-01 --end-date 2024-10-31
+
+# Collect last 90 days
+npm run collect-metrics -- --start-date 2024-08-01 --end-date 2024-10-31
 ```
 
 #### Collect for specific channels only
@@ -306,6 +323,12 @@ npm run collect-metrics -- --dry-run
 ```bash
 npm run collect-metrics -- -s 2024-01-01 -e 2024-01-07 -c 1,2 -d
 ```
+
+#### Tips for collecting historical data:
+- **First-time setup**: Collect the last 30-90 days to build a baseline
+- **Date range limit**: Keep ranges reasonable (30-90 days) to avoid API quota issues
+- **Incremental collection**: After initial setup, run daily collection via cron/scheduler
+- **API quota**: YouTube API has daily quotas - large date ranges may hit limits
 
 #### Command-line options
 - `-s, --start-date DATE` - Start date (YYYY-MM-DD, default: yesterday)

@@ -8,13 +8,21 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "script-src": ["'self'"],
+    },
+  },
+}));
 app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(express.static(path.join(__dirname, '../frontend/public')));
+app.use('/node_modules', express.static(path.join(__dirname, '../node_modules')));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Promo-Indicator API is running' });

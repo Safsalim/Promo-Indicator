@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>YouTube Live Stream Sentiment Dashboard</title>
   <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="/node_modules/chart.js/dist/chart.umd.js"></script>
 </head>
 <body>
   <div class="container">
@@ -31,6 +31,29 @@
           </button>
         </div>
         <div id="addChannelFeedback" class="feedback-message" style="display: none;"></div>
+      </section>
+
+      <!-- Data Collection Section -->
+      <section class="collection-section">
+        <h2>Collect Historical Data</h2>
+        <div class="collection-container">
+          <p class="collection-desc">Collect live stream metrics for past dates to build historical data</p>
+          <div class="collection-form">
+            <div class="date-input-group">
+              <label for="collectStartDate">Start Date</label>
+              <input type="date" id="collectStartDate" aria-label="Collection start date">
+            </div>
+            <div class="date-input-group">
+              <label for="collectEndDate">End Date</label>
+              <input type="date" id="collectEndDate" aria-label="Collection end date">
+            </div>
+            <button id="collectDataBtn" class="btn-primary">
+              <span class="btn-text">Collect Data</span>
+              <span class="btn-loading" style="display: none;">Collecting...</span>
+            </button>
+          </div>
+          <div id="collectionFeedback" class="feedback-message" style="display: none;"></div>
+        </div>
       </section>
 
       <!-- Filters Section -->
