@@ -40,7 +40,7 @@ try {
     if (metrics.length > 0) {
       console.log('\n  Recent metrics:');
       metrics.slice(0, 5).forEach(m => {
-        console.log(`    ${m.date}: ${m.peak_live_stream_views} peak views, ${m.live_stream_count} streams`);
+        console.log(`    ${m.date}: ${m.total_live_stream_views} peak views, ${m.live_stream_count} streams`);
       });
     }
 
@@ -48,7 +48,7 @@ try {
     const latest = LiveStreamMetrics.findLatestByChannelId(channel.id);
     if (latest) {
       console.log(`    Date: ${latest.date}`);
-      console.log(`    Peak Views: ${latest.peak_live_stream_views}`);
+      console.log(`    Peak Views: ${latest.total_live_stream_views}`);
       console.log(`    Stream count: ${latest.live_stream_count}`);
     }
 
@@ -82,7 +82,7 @@ try {
     );
     
     rangeMetrics.forEach(m => {
-      console.log(`  ${m.date}: ${m.peak_live_stream_views} peak views, ${m.live_stream_count} streams`);
+      console.log(`  ${m.date}: ${m.total_live_stream_views} peak views, ${m.live_stream_count} streams`);
     });
   }
 
@@ -99,23 +99,23 @@ try {
     LiveStreamMetrics.createOrUpdate({
       channel_id: testChannel.id,
       date: testDate,
-      peak_live_stream_views: 1000,
+      total_live_stream_views: 1000,
       live_stream_count: 2
     });
     
     let current = LiveStreamMetrics.findByChannelIdAndDate(testChannel.id, testDate);
-    console.log(`    Peak Views: ${current.peak_live_stream_views}, Streams: ${current.live_stream_count}`);
+    console.log(`    Peak Views: ${current.total_live_stream_views}, Streams: ${current.live_stream_count}`);
 
     console.log('  Update (upsert)...');
     LiveStreamMetrics.createOrUpdate({
       channel_id: testChannel.id,
       date: testDate,
-      peak_live_stream_views: 2500,
+      total_live_stream_views: 2500,
       live_stream_count: 5
     });
     
     current = LiveStreamMetrics.findByChannelIdAndDate(testChannel.id, testDate);
-    console.log(`    Peak Views: ${current.peak_live_stream_views}, Streams: ${current.live_stream_count}`);
+    console.log(`    Peak Views: ${current.total_live_stream_views}, Streams: ${current.live_stream_count}`);
     console.log('  ✓ Upsert working correctly!');
   }
 

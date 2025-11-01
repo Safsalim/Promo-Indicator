@@ -190,7 +190,7 @@ class LiveStreamCollector {
             LiveStreamMetrics.createOrUpdate({
               channel_id: channelDbId,
               date: date,
-              peak_live_stream_views: data.peakViews,
+              total_live_stream_views: data.peakViews,
               live_stream_count: data.count,
               peak_video_id: data.peakVideoId
             });
