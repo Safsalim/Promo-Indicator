@@ -98,7 +98,7 @@ try {
     LiveStreamMetrics.create({
       channel_id: 1,
       date: date,
-      total_live_stream_views: 5000 + (index * 500),
+      peak_live_stream_views: 5000 + (index * 500),
       live_stream_count: 2 + (index % 3)
     });
 
@@ -106,7 +106,7 @@ try {
     LiveStreamMetrics.create({
       channel_id: 2,
       date: date,
-      total_live_stream_views: 3000 + (index * 300),
+      peak_live_stream_views: 3000 + (index * 300),
       live_stream_count: 1 + (index % 2)
     });
   });
@@ -132,7 +132,7 @@ try {
   const metrics = LiveStreamMetrics.findByChannelId(1);
   console.log('✓ Metrics for channel 1:', metrics.length);
   metrics.forEach(m => {
-    console.log(`  - ${m.date}: ${m.total_live_stream_views} views, ${m.live_stream_count} streams`);
+    console.log(`  - ${m.date}: ${m.peak_live_stream_views} peak views, ${m.live_stream_count} streams`);
   });
 } catch (error) {
   console.error('✗ Error:', error.message);
@@ -144,7 +144,7 @@ try {
   const metrics = LiveStreamMetrics.findByDateRange('2024-01-16', '2024-01-18');
   console.log('✓ Metrics for date range:', metrics.length);
   metrics.forEach(m => {
-    console.log(`  - ${m.channel_name} (${m.date}): ${m.total_live_stream_views} views`);
+    console.log(`  - ${m.channel_name} (${m.date}): ${m.peak_live_stream_views} peak views`);
   });
 } catch (error) {
   console.error('✗ Error:', error.message);
@@ -271,10 +271,10 @@ try {
       COUNT(*) as total_records,
       COUNT(DISTINCT lsm.channel_id) as total_channels,
       COUNT(DISTINCT lsm.date) as total_days,
-      SUM(lsm.total_live_stream_views) as total_views,
-      AVG(lsm.total_live_stream_views) as avg_views,
-      MAX(lsm.total_live_stream_views) as max_views,
-      MIN(lsm.total_live_stream_views) as min_views,
+      SUM(lsm.peak_live_stream_views) as total_views,
+      AVG(lsm.peak_live_stream_views) as avg_views,
+      MAX(lsm.peak_live_stream_views) as max_views,
+      MIN(lsm.peak_live_stream_views) as min_views,
       SUM(lsm.live_stream_count) as total_streams,
       AVG(lsm.live_stream_count) as avg_streams
     FROM live_stream_metrics lsm

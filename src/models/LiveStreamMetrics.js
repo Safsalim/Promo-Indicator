@@ -4,35 +4,38 @@ class LiveStreamMetrics {
   static create(metricsData) {
     const db = getDatabase();
     const stmt = db.prepare(`
-      INSERT INTO live_stream_metrics (channel_id, date, total_live_stream_views, live_stream_count)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO live_stream_metrics (channel_id, date, peak_live_stream_views, live_stream_count, peak_video_id)
+      VALUES (?, ?, ?, ?, ?)
     `);
     
     return stmt.run(
       metricsData.channel_id,
       metricsData.date,
-      metricsData.total_live_stream_views || 0,
-      metricsData.live_stream_count || 0
+      metricsData.peak_live_stream_views || 0,
+      metricsData.live_stream_count || 0,
+      metricsData.peak_video_id || null
     );
   }
 
   static createOrUpdate(metricsData) {
     const db = getDatabase();
     const stmt = db.prepare(`
-      INSERT INTO live_stream_metrics (channel_id, date, total_live_stream_views, live_stream_count)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO live_stream_metrics (channel_id, date, peak_live_stream_views, live_stream_count, peak_video_id)
+      VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(channel_id, date) 
       DO UPDATE SET 
-        total_live_stream_views = excluded.total_live_stream_views,
+        peak_live_stream_views = excluded.peak_live_stream_views,
         live_stream_count = excluded.live_stream_count,
+        peak_video_id = excluded.peak_video_id,
         created_at = CURRENT_TIMESTAMP
     `);
     
     return stmt.run(
       metricsData.channel_id,
       metricsData.date,
-      metricsData.total_live_stream_views || 0,
-      metricsData.live_stream_count || 0
+      metricsData.peak_live_stream_views || 0,
+      metricsData.live_stream_count || 0,
+      metricsData.peak_video_id || null
     );
   }
 
@@ -110,13 +113,17 @@ class LiveStreamMetrics {
     const fields = [];
     const values = [];
 
-    if (metricsData.total_live_stream_views !== undefined) {
-      fields.push('total_live_stream_views = ?');
-      values.push(metricsData.total_live_stream_views);
+    if (metricsData.peak_live_stream_views !== undefined) {
+      fields.push('peak_live_stream_views = ?');
+      values.push(metricsData.peak_live_stream_views);
     }
     if (metricsData.live_stream_count !== undefined) {
       fields.push('live_stream_count = ?');
       values.push(metricsData.live_stream_count);
+    }
+    if (metricsData.peak_video_id !== undefined) {
+      fields.push('peak_video_id = ?');
+      values.push(metricsData.peak_video_id);
     }
     if (metricsData.date !== undefined) {
       fields.push('date = ?');
@@ -154,7 +161,7 @@ class LiveStreamMetrics {
   static getTotalViewsByChannelId(channelId) {
     const db = getDatabase();
     const stmt = db.prepare(`
-      SELECT SUM(total_live_stream_views) as total_views
+      SELECT SUM(peak_live_stream_views) as total_views
       FROM live_stream_metrics 
       WHERE channel_id = ?
     `);
@@ -164,7 +171,7 @@ class LiveStreamMetrics {
   static getAverageViewsByChannelId(channelId) {
     const db = getDatabase();
     const stmt = db.prepare(`
-      SELECT AVG(total_live_stream_views) as avg_views
+      SELECT AVG(peak_live_stream_views) as avg_views
       FROM live_stream_metrics 
       WHERE channel_id = ?
     `);
@@ -176,10 +183,10 @@ class LiveStreamMetrics {
     const stmt = db.prepare(`
       SELECT 
         COUNT(*) as total_days,
-        SUM(total_live_stream_views) as total_views,
-        AVG(total_live_stream_views) as avg_views,
-        MAX(total_live_stream_views) as max_views,
-        MIN(total_live_stream_views) as min_views,
+        SUM(peak_live_stream_views) as total_views,
+        AVG(peak_live_stream_views) as avg_views,
+        MAX(peak_live_stream_views) as max_views,
+        MIN(peak_live_stream_views) as min_views,
         SUM(live_stream_count) as total_streams,
         AVG(live_stream_count) as avg_streams
       FROM live_stream_metrics 
