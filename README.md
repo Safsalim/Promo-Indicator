@@ -199,12 +199,23 @@ http://localhost:3000
 - `notes` (TEXT) - Additional notes
 
 #### channels
-- `id` (TEXT) - YouTube channel ID
-- `name` (TEXT) - Channel name
-- `description` (TEXT) - Channel description
-- `subscriber_count` (INTEGER) - Subscriber count
-- `created_at` (DATETIME) - Record creation time
-- `updated_at` (DATETIME) - Record update time
+- `id` (INTEGER) - Primary key, auto-increment
+- `channel_handle` (TEXT) - YouTube handle (e.g., "@ciidb"), unique
+- `channel_id` (TEXT) - YouTube channel ID from API
+- `channel_name` (TEXT) - Channel display name
+- `added_date` (DATETIME) - When channel was added
+- `is_active` (INTEGER) - Enable/disable tracking (1 or 0)
+
+#### live_stream_metrics
+- `id` (INTEGER) - Primary key, auto-increment
+- `channel_id` (INTEGER) - Foreign key to channels.id
+- `date` (TEXT) - Date of metrics (YYYY-MM-DD), indexed
+- `total_live_stream_views` (INTEGER) - Cumulative views for all live streams that day
+- `live_stream_count` (INTEGER) - Number of live streams detected
+- `created_at` (DATETIME) - Record creation timestamp
+- **Unique constraint** on (channel_id, date)
+
+For detailed database documentation, see [DATABASE.md](./DATABASE.md).
 
 ## Development
 
@@ -217,13 +228,33 @@ http://localhost:3000
 
 ### Database Migrations
 
-To modify the database schema, edit `src/models/schema.js` and run:
+To initialize or update the database schema:
 
 ```bash
+# Initialize database with all tables
 npm run init-db
+
+# Or create a fresh database
+npm run create-db
+
+# Run specific migration for channels and metrics tables
+npm run migrate:channels
+
+# Seed database with sample data for testing
+npm run seed:channels
+
+# Test database models and CRUD operations
+npm run test:models
 ```
 
-**Note**: This will only create new tables/indexes. For destructive changes, you may need to manually update the database.
+**Available Scripts:**
+- `init-db` - Initialize database schema (creates all tables)
+- `create-db` - Create database with proper directory structure
+- `migrate:channels` - Add channels and live_stream_metrics tables
+- `seed:channels` - Populate database with sample data
+- `test:models` - Run model tests to verify functionality
+
+**Note**: Schema initialization scripts use `CREATE TABLE IF NOT EXISTS`, so they're safe to run multiple times. For detailed database documentation, migration guides, and usage examples, see [DATABASE.md](./DATABASE.md).
 
 ## YouTube API Quota
 
