@@ -308,10 +308,10 @@ router.get('/metrics/summary', (req, res) => {
         COUNT(*) as total_records,
         COUNT(DISTINCT lsm.channel_id) as total_channels,
         COUNT(DISTINCT lsm.date) as total_days,
-        SUM(lsm.peak_live_stream_views) as total_views,
-        AVG(lsm.peak_live_stream_views) as avg_views,
-        MAX(lsm.peak_live_stream_views) as max_views,
-        MIN(lsm.peak_live_stream_views) as min_views,
+        SUM(lsm.total_live_stream_views) as total_views,
+        AVG(lsm.total_live_stream_views) as avg_views,
+        MAX(lsm.total_live_stream_views) as max_views,
+        MIN(lsm.total_live_stream_views) as min_views,
         SUM(lsm.live_stream_count) as total_streams,
         AVG(lsm.live_stream_count) as avg_streams
       FROM live_stream_metrics lsm
@@ -343,7 +343,7 @@ router.get('/metrics/summary', (req, res) => {
       const trendQuery = `
         SELECT 
           date,
-          SUM(peak_live_stream_views) as daily_views
+          SUM(total_live_stream_views) as daily_views
         FROM live_stream_metrics
         WHERE date >= ? AND date <= ?
         ${channelIdsArray && channelIdsArray.length > 0 ? 
@@ -388,8 +388,8 @@ router.get('/metrics/summary', (req, res) => {
           c.channel_handle,
           c.channel_name,
           COUNT(*) as record_count,
-          SUM(lsm.peak_live_stream_views) as total_views,
-          AVG(lsm.peak_live_stream_views) as avg_views,
+          SUM(lsm.total_live_stream_views) as total_views,
+          AVG(lsm.total_live_stream_views) as avg_views,
           SUM(lsm.live_stream_count) as total_streams
         FROM live_stream_metrics lsm
         JOIN channels c ON lsm.channel_id = c.id

@@ -276,7 +276,7 @@ function updateChart(metrics) {
     }
     groupedByChannel[channelId].data.push({
       date: metric.date,
-      views: metric.peak_live_stream_views
+      views: metric.total_live_stream_views
     });
   });
   

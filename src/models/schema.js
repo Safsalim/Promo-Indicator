@@ -48,7 +48,7 @@ function initializeSchema() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       channel_id INTEGER NOT NULL,
       date TEXT NOT NULL,
-      peak_live_stream_views INTEGER DEFAULT 0,
+      total_live_stream_views INTEGER DEFAULT 0,
       live_stream_count INTEGER DEFAULT 0,
       peak_video_id TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
