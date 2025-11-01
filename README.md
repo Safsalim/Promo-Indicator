@@ -10,6 +10,9 @@ YouTube promotional analytics and monitoring dashboard for tracking video perfor
 - SQLite database for local data persistence
 - RESTful API for data access
 - Interactive dashboard for monitoring
+- **Automated live stream metrics collection**
+- **Channel management CLI tools**
+- **Scheduled data collection support**
 
 ## Tech Stack
 
@@ -217,6 +220,224 @@ http://localhost:3000
 
 For detailed database documentation, see [DATABASE.md](./DATABASE.md).
 
+## Live Stream Metrics Collection
+
+### Channel Management
+
+Use the channel management CLI to add and manage YouTube channels for tracking:
+
+#### List all channels
+```bash
+npm run manage-channels list
+```
+
+#### Add a new channel
+```bash
+npm run manage-channels add @channelhandle
+```
+
+Example:
+```bash
+npm run manage-channels add @ciidb
+```
+
+The tool will automatically fetch the channel's YouTube ID and name from the API.
+
+#### Enable/disable channel tracking
+```bash
+# Disable tracking
+npm run manage-channels disable 1
+
+# Enable tracking
+npm run manage-channels enable 1
+```
+
+#### View channel information
+```bash
+npm run manage-channels info 1
+```
+
+#### Delete a channel
+```bash
+npm run manage-channels delete 1
+```
+
+**Warning:** Deleting a channel also removes all associated metrics data.
+
+### Collecting Metrics
+
+The metrics collection tool fetches live stream view counts from YouTube and stores them in the database.
+
+#### Collect metrics for yesterday (default)
+```bash
+npm run collect-metrics
+```
+
+#### Collect metrics for a specific date
+```bash
+npm run collect-metrics -- --start-date 2024-01-15
+```
+
+#### Collect metrics for a date range
+```bash
+npm run collect-metrics -- --start-date 2024-01-01 --end-date 2024-01-31
+```
+
+#### Collect for specific channels only
+```bash
+npm run collect-metrics -- --channels 1,2,3
+```
+
+#### Dry run (preview without saving)
+```bash
+npm run collect-metrics -- --dry-run
+```
+
+#### Combine options
+```bash
+npm run collect-metrics -- -s 2024-01-01 -e 2024-01-07 -c 1,2 -d
+```
+
+#### Command-line options
+- `-s, --start-date DATE` - Start date (YYYY-MM-DD, default: yesterday)
+- `-e, --end-date DATE` - End date (YYYY-MM-DD, default: same as start date)
+- `-c, --channels IDS` - Comma-separated channel IDs to process (default: all active)
+- `-d, --dry-run` - Run without saving data (preview mode)
+- `-h, --help` - Show help message
+
+### Automated Scheduling
+
+#### Linux/macOS (cron)
+
+Edit your crontab:
+```bash
+crontab -e
+```
+
+Add a daily collection job (runs at 2 AM every day):
+```cron
+0 2 * * * cd /path/to/promo-indicator && /usr/bin/npm run collect-metrics >> /path/to/logs/collection.log 2>&1
+```
+
+Weekly collection for the past 7 days (runs every Monday at 3 AM):
+```cron
+0 3 * * 1 cd /path/to/promo-indicator && /usr/bin/npm run collect-metrics -- --start-date $(date -d '7 days ago' +\%Y-\%m-\%d) --end-date $(date -d '1 day ago' +\%Y-\%m-\%d) >> /path/to/logs/collection-weekly.log 2>&1
+```
+
+#### Windows (Task Scheduler)
+
+1. Open Task Scheduler
+2. Create a new task with the following settings:
+   - **Trigger**: Daily at 2:00 AM
+   - **Action**: Start a program
+   - **Program/script**: `cmd.exe`
+   - **Arguments**: `/c cd /d C:\path\to\promo-indicator && npm run collect-metrics >> logs\collection.log 2>&1`
+
+#### Using systemd (Linux)
+
+Create a service file `/etc/systemd/system/livestream-collector.service`:
+```ini
+[Unit]
+Description=Live Stream Metrics Collection
+After=network.target
+
+[Service]
+Type=oneshot
+User=yourusername
+WorkingDirectory=/path/to/promo-indicator
+ExecStart=/usr/bin/npm run collect-metrics
+StandardOutput=append:/var/log/livestream-collector.log
+StandardError=append:/var/log/livestream-collector.log
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Create a timer file `/etc/systemd/system/livestream-collector.timer`:
+```ini
+[Unit]
+Description=Daily Live Stream Metrics Collection
+Requires=livestream-collector.service
+
+[Timer]
+OnCalendar=daily
+OnCalendar=02:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable and start the timer:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable livestream-collector.timer
+sudo systemctl start livestream-collector.timer
+
+# Check timer status
+sudo systemctl status livestream-collector.timer
+```
+
+#### Docker/Container Environments
+
+If running in a container, use the container's scheduling mechanism or an external scheduler like Kubernetes CronJob:
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: livestream-collector
+spec:
+  schedule: "0 2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: collector
+            image: promo-indicator:latest
+            command: ["npm", "run", "collect-metrics"]
+          restartPolicy: OnFailure
+```
+
+### Logging and Monitoring
+
+The collection tool provides comprehensive logging:
+
+- **Successful collections**: Channel, date, view counts, and stream counts
+- **Errors**: Channel identification, error messages, and reasons for failure
+- **Summary report**: Total channels processed, successful/failed counts
+
+Logs include:
+- Collection start/end times
+- Processed channels and dates
+- API errors and rate limiting issues
+- Database insertion confirmations
+
+Example log output:
+```
+============================================================
+Live Stream Metrics Collection
+============================================================
+Date range: 2024-01-15 to 2024-01-15
+============================================================
+Processing 2 active channel(s)...
+
+Processing channel ID 1 (UC1234567890abcdefg)...
+Date range: 2024-01-15 to 2024-01-15
+Found 3 potential live stream(s).
+Processing 1 date(s) with live stream data.
+✓ Stored: Date=2024-01-15, Views=5000, Count=3
+
+============================================================
+Collection Summary
+============================================================
+Total channels: 2
+Successful: 2
+Failed: 0
+============================================================
+```
+
 ## Development
 
 ### Adding New Features
@@ -284,11 +505,14 @@ For issues and questions, please open an issue on the GitHub repository.
 
 ## Roadmap
 
-- [ ] Automated data collection scheduler
+- [x] Automated data collection scheduler
+- [x] Live stream metrics collection
+- [x] Channel management CLI
 - [ ] Email notifications for promotional spikes
-- [ ] Multi-channel comparison
+- [ ] Multi-channel comparison dashboard
 - [ ] Export data to CSV/JSON
 - [ ] User authentication
 - [ ] React-based frontend with routing
 - [ ] Real-time WebSocket updates
 - [ ] Advanced analytics and ML-based predictions
+- [ ] Automated anomaly detection for view spikes
