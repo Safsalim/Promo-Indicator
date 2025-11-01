@@ -57,6 +57,10 @@ class LiveStreamCollector {
     const seenVideoIds = new Set();
     const duplicatesDetected = [];
 
+    if (this.verbose) {
+      this.logger.log('📊 Using MAX (peak) aggregation for view counts (not SUM)');
+    }
+
     streams.forEach(stream => {
       const videoId = stream.id.videoId;
       const publishedDate = stream.snippet.publishedAt.split('T')[0];
@@ -187,6 +191,12 @@ class LiveStreamCollector {
           });
         } else {
           try {
+            // Check for existing data to show before/after values
+            const existingMetric = LiveStreamMetrics.findByChannelIdAndDate(channelDbId, date);
+            const isUpdate = !!existingMetric;
+            const oldViews = existingMetric ? existingMetric.total_live_stream_views : null;
+            const oldCount = existingMetric ? existingMetric.live_stream_count : null;
+            
             LiveStreamMetrics.createOrUpdate({
               channel_id: channelDbId,
               date: date,
@@ -215,7 +225,22 @@ class LiveStreamCollector {
             }
 
             const countInfo = data.count > 1 ? ` (${data.count} streams, peak: ${data.peakVideoId})` : '';
-            this.logger.log(`✓ Stored: Date=${date}, Peak Views=${data.peakViews}${countInfo}`);
+            
+            // Show before/after if this was an update
+            if (isUpdate && (oldViews !== data.peakViews || oldCount !== data.count)) {
+              this.logger.log(`🔄 Updated: Date=${date}`);
+              if (oldViews !== data.peakViews) {
+                this.logger.log(`   Views: ${oldViews} → ${data.peakViews} (${data.peakViews > oldViews ? '+' : ''}${data.peakViews - oldViews})`);
+              }
+              if (oldCount !== data.count) {
+                this.logger.log(`   Streams: ${oldCount} → ${data.count}`);
+              }
+            } else if (isUpdate) {
+              this.logger.log(`✓ Refreshed: Date=${date}, Peak Views=${data.peakViews}${countInfo} (no change)`);
+            } else {
+              this.logger.log(`✓ Stored: Date=${date}, Peak Views=${data.peakViews}${countInfo}`);
+            }
+            
             this.logger.log(`✓ Stored ${data.videos.length} video record(s) for audit trail`);
             processedCount++;
           } catch (error) {

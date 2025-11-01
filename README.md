@@ -324,6 +324,28 @@ npm run collect-metrics -- --dry-run
 npm run collect-metrics -- -s 2024-01-01 -e 2024-01-07 -c 1,2 -d
 ```
 
+#### Recalculate existing data with peak aggregation
+After the peak view aggregation fix, you may need to recalculate existing data:
+
+```bash
+# Recalculate with verbose logging showing before/after values
+npm run recalculate-metrics -- --start-date 2024-08-01 --end-date 2024-11-01 --verbose
+```
+
+The `--verbose` flag shows:
+- Confirmation that MAX aggregation is being used (not SUM)
+- Before/after values for changed dates
+- Which video had the peak views on days with multiple streams
+
+**Example output:**
+```
+📊 Using MAX (peak) aggregation for view counts (not SUM)
+🔄 Updated: Date=2024-08-28
+   Views: 540 → 285 (-255)
+```
+
+See [PEAK_VIEWS_MIGRATION.md](./PEAK_VIEWS_MIGRATION.md) for details on the peak view aggregation change.
+
 #### Tips for collecting historical data:
 - **First-time setup**: Collect the last 30-90 days to build a baseline
 - **Date range limit**: Keep ranges reasonable (30-90 days) to avoid API quota issues
