@@ -1,99 +1,51 @@
-const { youtube } = require('../config/youtube');
+const { YouTubeApiClient, YouTubeApiError } = require('./youtubeApiClient');
 const Channel = require('../models/Channel');
 const LiveStreamMetrics = require('../models/LiveStreamMetrics');
 
 class LiveStreamCollector {
   constructor() {
     this.logger = console;
+    this.youtubeClient = new YouTubeApiClient();
   }
 
   async getChannelIdByHandle(handle) {
     try {
-      const formattedHandle = handle.startsWith('@') ? handle.substring(1) : handle;
-      
-      const response = await youtube.search.list({
-        part: ['snippet'],
-        q: handle,
-        type: ['channel'],
-        maxResults: 1
-      });
-
-      if (!response.data.items || response.data.items.length === 0) {
-        throw new Error(`Channel not found for handle: ${handle}`);
-      }
-
-      const channelId = response.data.items[0].snippet.channelId;
-      const channelTitle = response.data.items[0].snippet.title;
-
-      return { channelId, channelTitle };
+      const result = await this.youtubeClient.resolveChannelHandle(handle);
+      return result;
     } catch (error) {
-      this.logger.error(`Error resolving channel handle ${handle}:`, error.message);
+      if (error instanceof YouTubeApiError) {
+        this.logger.error(`Error resolving channel handle ${handle}: [${error.type}] ${error.message}`);
+      } else {
+        this.logger.error(`Error resolving channel handle ${handle}:`, error.message);
+      }
       throw error;
     }
   }
 
   async getLiveStreamsForDateRange(channelId, startDate, endDate) {
     try {
-      const liveStreams = [];
-      let pageToken = null;
-
-      const startDateTime = new Date(startDate);
-      startDateTime.setHours(0, 0, 0, 0);
-      const endDateTime = new Date(endDate);
-      endDateTime.setHours(23, 59, 59, 999);
-
-      do {
-        const response = await youtube.search.list({
-          part: ['snippet'],
-          channelId: channelId,
-          eventType: 'completed',
-          type: ['video'],
-          publishedAfter: startDateTime.toISOString(),
-          publishedBefore: endDateTime.toISOString(),
-          maxResults: 50,
-          pageToken: pageToken,
-          order: 'date'
-        });
-
-        if (response.data.items && response.data.items.length > 0) {
-          liveStreams.push(...response.data.items);
-        }
-
-        pageToken = response.data.nextPageToken;
-      } while (pageToken);
-
+      const liveStreams = await this.youtubeClient.searchLiveStreams(channelId, startDate, endDate);
       return liveStreams;
     } catch (error) {
-      this.logger.error(`Error fetching live streams for channel ${channelId}:`, error.message);
+      if (error instanceof YouTubeApiError) {
+        this.logger.error(`Error fetching live streams for channel ${channelId}: [${error.type}] ${error.message}`);
+      } else {
+        this.logger.error(`Error fetching live streams for channel ${channelId}:`, error.message);
+      }
       throw error;
     }
   }
 
   async getVideoStatistics(videoIds) {
     try {
-      if (!videoIds || videoIds.length === 0) {
-        return [];
-      }
-
-      const chunkSize = 50;
-      const allStats = [];
-
-      for (let i = 0; i < videoIds.length; i += chunkSize) {
-        const chunk = videoIds.slice(i, i + chunkSize);
-        
-        const response = await youtube.videos.list({
-          part: ['statistics', 'snippet', 'liveStreamingDetails'],
-          id: chunk
-        });
-
-        if (response.data.items) {
-          allStats.push(...response.data.items);
-        }
-      }
-
-      return allStats;
+      const statistics = await this.youtubeClient.getVideoStatistics(videoIds);
+      return statistics;
     } catch (error) {
-      this.logger.error('Error fetching video statistics:', error.message);
+      if (error instanceof YouTubeApiError) {
+        this.logger.error(`Error fetching video statistics: [${error.type}] ${error.message}`);
+      } else {
+        this.logger.error('Error fetching video statistics:', error.message);
+      }
       throw error;
     }
   }
@@ -187,10 +139,25 @@ class LiveStreamCollector {
         totalDates: dates.length
       };
     } catch (error) {
-      this.logger.error(`Error collecting metrics for channel ${channelDbId}:`, error.message);
+      let errorMessage = error.message;
+      let errorType = 'UNKNOWN';
+      
+      if (error instanceof YouTubeApiError) {
+        errorType = error.type;
+        errorMessage = `[${error.type}] ${error.message}`;
+        
+        if (error.type === 'QUOTA_EXCEEDED') {
+          this.logger.error(`\n⚠️  API quota limit reached. Collection stopped for channel ${channelDbId}.`);
+        } else if (error.type === 'AUTH_ERROR') {
+          this.logger.error(`\n⚠️  Authentication error. Check your API key configuration.`);
+        }
+      }
+      
+      this.logger.error(`Error collecting metrics for channel ${channelDbId}: ${errorMessage}`);
       return { 
         success: false, 
-        message: error.message, 
+        message: errorMessage,
+        errorType: errorType,
         processed: 0 
       };
     }
@@ -279,6 +246,12 @@ class LiveStreamCollector {
     this.logger.log(`Total channels: ${results.totalChannels}`);
     this.logger.log(`Successful: ${results.successful}`);
     this.logger.log(`Failed: ${results.failed}`);
+    
+    const quotaUsage = this.getQuotaUsage();
+    this.logger.log('\nAPI Quota Usage:');
+    this.logger.log(`Used: ${quotaUsage.used} / ${quotaUsage.limit} (${quotaUsage.percentage}%)`);
+    this.logger.log(`Remaining: ${quotaUsage.remaining}`);
+    
     this.logger.log('='.repeat(60));
 
     return results;
@@ -288,6 +261,10 @@ class LiveStreamCollector {
     const date = new Date();
     date.setDate(date.getDate() - 1);
     return date.toISOString().split('T')[0];
+  }
+
+  getQuotaUsage() {
+    return this.youtubeClient.getQuotaUsage();
   }
 
   setLogger(logger) {
