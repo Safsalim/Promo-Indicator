@@ -1,16 +1,99 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
 const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../../database/promo-indicator.db');
 
 let db;
+let schemaInitialized = false;
 
 function getDatabase() {
   if (!db) {
+    // Ensure the database directory exists
+    const dbDir = path.dirname(dbPath);
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+      console.log(`Created database directory: ${dbDir}`);
+    }
+    
     db = new Database(dbPath, { verbose: console.log });
     db.pragma('journal_mode = WAL');
+    
+    // Initialize schema on first connection
+    if (!schemaInitialized) {
+      initializeSchema();
+      schemaInitialized = true;
+    }
   }
   return db;
+}
+
+function initializeSchema() {
+  if (!db) return;
+  
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS videos (
+      id TEXT PRIMARY KEY,
+      channel_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      published_at DATETIME NOT NULL,
+      thumbnail_url TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS video_stats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      video_id TEXT NOT NULL,
+      view_count INTEGER DEFAULT 0,
+      like_count INTEGER DEFAULT 0,
+      comment_count INTEGER DEFAULT 0,
+      recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (video_id) REFERENCES videos(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS promo_indicators (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      video_id TEXT NOT NULL,
+      indicator_type TEXT NOT NULL,
+      indicator_value REAL,
+      detected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      notes TEXT,
+      FOREIGN KEY (video_id) REFERENCES videos(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS channels (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      channel_handle TEXT UNIQUE NOT NULL,
+      channel_id TEXT,
+      channel_name TEXT,
+      added_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+      is_active INTEGER DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS live_stream_metrics (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      channel_id INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      total_live_stream_views INTEGER DEFAULT 0,
+      live_stream_count INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (channel_id) REFERENCES channels(id),
+      UNIQUE(channel_id, date)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_video_stats_video_id ON video_stats(video_id);
+    CREATE INDEX IF NOT EXISTS idx_video_stats_recorded_at ON video_stats(recorded_at);
+    CREATE INDEX IF NOT EXISTS idx_promo_indicators_video_id ON promo_indicators(video_id);
+    CREATE INDEX IF NOT EXISTS idx_videos_channel_id ON videos(channel_id);
+    CREATE INDEX IF NOT EXISTS idx_live_stream_metrics_channel_id ON live_stream_metrics(channel_id);
+    CREATE INDEX IF NOT EXISTS idx_live_stream_metrics_date ON live_stream_metrics(date);
+    CREATE INDEX IF NOT EXISTS idx_channels_channel_handle ON channels(channel_handle);
+    CREATE INDEX IF NOT EXISTS idx_channels_is_active ON channels(is_active);
+  `);
+
+  console.log('Database schema initialized successfully');
 }
 
 function closeDatabase() {
@@ -22,5 +105,6 @@ function closeDatabase() {
 
 module.exports = {
   getDatabase,
-  closeDatabase
+  closeDatabase,
+  initializeSchema
 };
