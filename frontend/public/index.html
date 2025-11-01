@@ -159,6 +159,50 @@
         <div id="chartLegend" class="chart-legend"></div>
       </section>
 
+      <!-- RSI Chart Section -->
+      <section class="chart-section rsi-section">
+        <div class="rsi-header">
+          <h2>RSI - Relative Strength Index</h2>
+          <div class="rsi-controls">
+            <div class="rsi-period-selector">
+              <label for="rsiPeriod">RSI Period:</label>
+              <select id="rsiPeriod">
+                <option value="7">7 Days</option>
+                <option value="14" selected>14 Days</option>
+                <option value="21">21 Days</option>
+              </select>
+            </div>
+            <div class="rsi-toggle">
+              <label class="toggle-switch">
+                <input type="checkbox" id="rsiToggle" checked>
+                <span class="toggle-slider"></span>
+              </label>
+              <label for="rsiToggle">Show RSI</label>
+            </div>
+          </div>
+        </div>
+        <div class="rsi-description">
+          <p>RSI measures sentiment momentum and "heat" from 0-100:</p>
+          <div class="rsi-legend">
+            <div class="rsi-legend-item overbought">
+              <span class="rsi-indicator"></span>
+              <span><strong>Above 70:</strong> Heated/Euphoric (Overbought)</span>
+            </div>
+            <div class="rsi-legend-item neutral">
+              <span class="rsi-indicator"></span>
+              <span><strong>30-70:</strong> Neutral Zone</span>
+            </div>
+            <div class="rsi-legend-item oversold">
+              <span class="rsi-indicator"></span>
+              <span><strong>Below 30:</strong> Cooling/Fear (Oversold)</span>
+            </div>
+          </div>
+        </div>
+        <div id="rsiChartContainer" class="chart-container rsi-chart-container">
+          <canvas id="rsiChart"></canvas>
+        </div>
+      </section>
+
       <!-- No Data Message -->
       <div id="noDataMessage" class="no-data-message" style="display: none;">
         <div class="no-data-icon">📊</div>

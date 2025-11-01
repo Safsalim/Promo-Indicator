@@ -4,6 +4,7 @@ const Channel = require('../models/Channel');
 const LiveStreamMetrics = require('../models/LiveStreamMetrics');
 const { YouTubeApiClient, YouTubeApiError } = require('../services/youtubeApiClient');
 const liveStreamCollector = require('../services/liveStreamCollector');
+const { calculateRSIWithDates, categorizeRSI, getRSILabel } = require('../utils/indicators');
 
 // GET /api/channels - List all tracked channels with their metadata
 router.get('/channels', (req, res) => {
@@ -113,7 +114,7 @@ router.post('/channels', async (req, res) => {
 // GET /api/metrics - Query metrics with filters
 router.get('/metrics', (req, res) => {
   try {
-    const { channel_ids, start_date, end_date, limit } = req.query;
+    const { channel_ids, start_date, end_date, limit, rsi_period } = req.query;
 
     // Input validation
     let channelIdsArray = null;
@@ -168,6 +169,18 @@ router.get('/metrics', (req, res) => {
       }
     }
 
+    // Validate RSI period
+    let rsiPeriod = 14;
+    if (rsi_period) {
+      rsiPeriod = parseInt(rsi_period, 10);
+      if (isNaN(rsiPeriod) || rsiPeriod <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'rsi_period must be a positive integer'
+        });
+      }
+    }
+
     // Build query based on filters
     const { getDatabase } = require('../config/database');
     const db = getDatabase();
@@ -205,15 +218,29 @@ router.get('/metrics', (req, res) => {
     const stmt = db.prepare(query);
     const metrics = stmt.all(...params);
 
+    // Calculate RSI for each channel
+    const rsiByChannel = {};
+    if (channelIdsArray && channelIdsArray.length > 0) {
+      channelIdsArray.forEach(channelId => {
+        const channelMetrics = metrics.filter(m => m.channel_id === channelId);
+        if (channelMetrics.length > 0) {
+          const rsiData = calculateRSIWithDates(channelMetrics, rsiPeriod);
+          rsiByChannel[channelId] = rsiData;
+        }
+      });
+    }
+
     res.json({
       success: true,
       data: metrics,
       count: metrics.length,
+      rsi: rsiByChannel,
       filters: {
         channel_ids: channelIdsArray,
         start_date: start_date || null,
         end_date: end_date || null,
-        limit: limitValue || null
+        limit: limitValue || null,
+        rsi_period: rsiPeriod
       }
     });
   } catch (error) {
