@@ -1,6 +1,7 @@
 const { YouTubeApiClient, YouTubeApiError } = require('./youtubeApiClient');
 const Channel = require('../models/Channel');
 const LiveStreamMetrics = require('../models/LiveStreamMetrics');
+const LiveStreamVideo = require('../models/LiveStreamVideo');
 
 class LiveStreamCollector {
   constructor() {
@@ -52,6 +53,8 @@ class LiveStreamCollector {
 
   groupStreamsByDate(streams, statistics) {
     const streamsByDate = {};
+    const seenVideoIds = new Set();
+    const duplicatesDetected = [];
 
     streams.forEach(stream => {
       const videoId = stream.id.videoId;
@@ -59,26 +62,72 @@ class LiveStreamCollector {
 
       const stats = statistics.find(s => s.id === videoId);
       if (!stats) {
+        this.logger.warn(`⚠️  No statistics found for video ID: ${videoId}`);
         return;
       }
 
-      const isLiveStream = stats.snippet.liveBroadcastContent === 'none' && 
-                          (stats.liveStreamingDetails || 
-                           stream.snippet.liveBroadcastContent === 'none');
+      const broadcastContent = stats.snippet.liveBroadcastContent;
+      const videoType = stats.snippet.categoryId;
+      
+      if (broadcastContent === 'upcoming') {
+        this.logger.log(`⏭️  Skipping upcoming livestream: ${videoId} - "${stats.snippet.title}"`);
+        return;
+      }
+
+      const globalVideoKey = `${videoId}`;
+      if (seenVideoIds.has(globalVideoKey)) {
+        duplicatesDetected.push({
+          videoId: videoId,
+          title: stats.snippet.title,
+          date: publishedDate,
+          viewCount: parseInt(stats.statistics.viewCount || 0)
+        });
+        this.logger.warn(`🔁 DUPLICATE DETECTED: Video ${videoId} - "${stats.snippet.title}" already counted for ${publishedDate}`);
+        return;
+      }
+      
+      seenVideoIds.add(globalVideoKey);
 
       if (!streamsByDate[publishedDate]) {
         streamsByDate[publishedDate] = {
           count: 0,
           totalViews: 0,
-          videoIds: []
+          videoIds: [],
+          videos: []
         };
       }
 
       const viewCount = parseInt(stats.statistics.viewCount || 0);
+      const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      
+      const videoDetails = {
+        videoId: videoId,
+        title: stats.snippet.title,
+        publishedAt: stats.snippet.publishedAt,
+        viewCount: viewCount,
+        url: videoUrl,
+        broadcastType: broadcastContent
+      };
+
+      this.logger.log(`✓ Counting video: ${videoId}`);
+      this.logger.log(`  Title: "${stats.snippet.title}"`);
+      this.logger.log(`  Published: ${stats.snippet.publishedAt}`);
+      this.logger.log(`  Views: ${viewCount}`);
+      this.logger.log(`  URL: ${videoUrl}`);
+      this.logger.log(`  Broadcast Type: ${broadcastContent}`);
+
       streamsByDate[publishedDate].count++;
       streamsByDate[publishedDate].totalViews += viewCount;
       streamsByDate[publishedDate].videoIds.push(videoId);
+      streamsByDate[publishedDate].videos.push(videoDetails);
     });
+
+    if (duplicatesDetected.length > 0) {
+      this.logger.warn(`\n⚠️  DUPLICATE SUMMARY: ${duplicatesDetected.length} duplicate(s) detected and excluded:`);
+      duplicatesDetected.forEach(dup => {
+        this.logger.warn(`   - ${dup.videoId}: "${dup.title}" (${dup.viewCount} views)`);
+      });
+    }
 
     return streamsByDate;
   }
@@ -116,6 +165,10 @@ class LiveStreamCollector {
         
         if (dryRun) {
           this.logger.log(`[DRY RUN] Would store: Date=${date}, Views=${data.totalViews}, Count=${data.count}`);
+          this.logger.log(`[DRY RUN] Videos that would be stored:`);
+          data.videos.forEach(video => {
+            this.logger.log(`  - ${video.videoId}: "${video.title}" (${video.viewCount} views)`);
+          });
         } else {
           try {
             LiveStreamMetrics.createOrUpdate({
@@ -124,7 +177,28 @@ class LiveStreamCollector {
               total_live_stream_views: data.totalViews,
               live_stream_count: data.count
             });
+
+            LiveStreamVideo.deleteByChannelIdAndDate(channelDbId, date);
+            
+            for (const video of data.videos) {
+              try {
+                LiveStreamVideo.createOrUpdate({
+                  video_id: video.videoId,
+                  channel_id: channelDbId,
+                  date: date,
+                  title: video.title,
+                  url: video.url,
+                  view_count: video.viewCount,
+                  published_at: video.publishedAt,
+                  broadcast_type: video.broadcastType
+                });
+              } catch (videoError) {
+                this.logger.error(`✗ Failed to store video ${video.videoId}:`, videoError.message);
+              }
+            }
+
             this.logger.log(`✓ Stored: Date=${date}, Views=${data.totalViews}, Count=${data.count}`);
+            this.logger.log(`✓ Stored ${data.videos.length} video record(s) for audit trail`);
             processedCount++;
           } catch (error) {
             this.logger.error(`✗ Failed to store metrics for date ${date}:`, error.message);
