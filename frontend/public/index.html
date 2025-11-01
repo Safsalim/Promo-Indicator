@@ -232,6 +232,42 @@
         </div>
       </section>
 
+      <!-- BTC Price Chart Section -->
+      <section class="chart-section btc-section">
+        <h2>Bitcoin Price (USD)</h2>
+        <p class="section-description">Daily BTC price movements to correlate with sentiment indicators</p>
+        <div class="chart-container">
+          <canvas id="btcChart"></canvas>
+        </div>
+      </section>
+
+      <!-- Fear & Greed Index Chart Section -->
+      <section class="chart-section fng-section">
+        <h2>Crypto Fear & Greed Index</h2>
+        <p class="section-description">Market sentiment index from Alternative.me (0-100 scale)</p>
+        <div class="fng-legend">
+          <div class="fng-legend-item extreme-fear">
+            <span class="fng-indicator"></span>
+            <span><strong>0-24:</strong> Extreme Fear</span>
+          </div>
+          <div class="fng-legend-item fear">
+            <span class="fng-indicator"></span>
+            <span><strong>25-49:</strong> Fear</span>
+          </div>
+          <div class="fng-legend-item greed">
+            <span class="fng-indicator"></span>
+            <span><strong>50-74:</strong> Greed</span>
+          </div>
+          <div class="fng-legend-item extreme-greed">
+            <span class="fng-indicator"></span>
+            <span><strong>75-100:</strong> Extreme Greed</span>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas id="fngChart"></canvas>
+        </div>
+      </section>
+
       <!-- No Data Message -->
       <div id="noDataMessage" class="no-data-message" style="display: none;">
         <div class="no-data-icon">📊</div>
