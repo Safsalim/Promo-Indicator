@@ -164,8 +164,46 @@
         </div>
       </section>
 
+      <!-- View Toggle -->
+      <section class="view-toggle-section">
+        <div class="view-toggle-container">
+          <label class="view-toggle-label">Chart View:</label>
+          <div class="view-toggle-buttons">
+            <button class="view-toggle-btn active" data-view="stacked" id="stackedViewBtn">
+              <span class="toggle-icon">📊</span>
+              <span>Stacked View</span>
+            </button>
+            <button class="view-toggle-btn" data-view="overlay" id="overlayViewBtn">
+              <span class="toggle-icon">📈</span>
+              <span>Overlay View</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Overlay Chart Section -->
+      <section class="chart-section overlay-chart-section" id="overlayChartSection" style="display: none;">
+        <h2>Sentiment Indicators Overlay</h2>
+        <p class="section-description">All metrics overlaid on one chart for direct comparison - YouTube Views (Blue), Fear & Greed (Orange/Red), BTC Price (Green)</p>
+        
+        <div class="overlay-controls">
+          <label class="overlay-checkbox">
+            <input type="checkbox" id="showRsiOverlay">
+            <span>Show RSI overlay</span>
+          </label>
+          <label class="overlay-checkbox">
+            <input type="checkbox" id="normalizeOverlay">
+            <span>Normalize to 0-100 scale</span>
+          </label>
+        </div>
+        
+        <div class="chart-container">
+          <canvas id="overlayChart"></canvas>
+        </div>
+      </section>
+
       <!-- Main Chart -->
-      <section class="chart-section">
+      <section class="chart-section" id="viewsChartSection">
         <h2>Live Stream Peak View Trends</h2>
         <p class="section-description">Peak view count from live streams per day. Days with multiple streams show the highest-viewed stream.</p>
         <div class="sentiment-indicators">
@@ -282,5 +320,6 @@
   </div>
 
   <script src="app.js"></script>
+  <script src="overlay-functions.js"></script>
 </body>
 </html>

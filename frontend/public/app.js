@@ -4,12 +4,14 @@ let viewsChart = null;
 let rsiChart = null;
 let btcChart = null;
 let fngChart = null;
+let overlayChart = null;
 let allChannels = [];
 let currentMetrics = [];
 let currentRsiData = {};
 let currentRsiPeriod = 14;
 let currentBtcData = [];
 let currentFngData = [];
+let currentViewMode = 'stacked';
 
 const CHART_COLORS = [
   '#667eea',
@@ -1191,6 +1193,26 @@ function setupEventListeners() {
     const channelIds = getSelectedChannelIds();
     if (currentRsiData && Object.keys(currentRsiData).length > 0) {
       updateRsiChart(currentRsiData, channelIds);
+    }
+  });
+  
+  document.getElementById('stackedViewBtn').addEventListener('click', () => {
+    toggleView('stacked');
+  });
+  
+  document.getElementById('overlayViewBtn').addEventListener('click', () => {
+    toggleView('overlay');
+  });
+  
+  document.getElementById('showRsiOverlay').addEventListener('change', () => {
+    if (currentViewMode === 'overlay') {
+      updateOverlayChart();
+    }
+  });
+  
+  document.getElementById('normalizeOverlay').addEventListener('change', () => {
+    if (currentViewMode === 'overlay') {
+      updateOverlayChart();
     }
   });
 }

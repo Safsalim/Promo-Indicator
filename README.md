@@ -14,6 +14,11 @@ YouTube promotional analytics and monitoring dashboard for tracking video perfor
 - **Historical data collection via dashboard UI or CLI**
 - **Channel management via dashboard and CLI tools**
 - **Scheduled data collection support**
+- **Overlay Chart View** - Compare all sentiment indicators on one chart
+  - Multi-axis visualization (YouTube Views, BTC Price, Fear & Greed Index)
+  - Optional RSI overlay for sentiment correlation analysis
+  - Normalization feature for percentage-based comparison
+  - Interactive tooltips showing all metrics at once
 
 ## Tech Stack
 
