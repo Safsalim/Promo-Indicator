@@ -2,10 +2,14 @@ const API_BASE_URL = 'http://localhost:3000/api';
 
 let viewsChart = null;
 let rsiChart = null;
+let btcChart = null;
+let fngChart = null;
 let allChannels = [];
 let currentMetrics = [];
 let currentRsiData = {};
 let currentRsiPeriod = 14;
+let currentBtcData = [];
+let currentFngData = [];
 
 const CHART_COLORS = [
   '#667eea',
@@ -214,9 +218,16 @@ async function fetchMetrics() {
       rsi_period: currentRsiPeriod
     });
     
-    const [metricsResponse, summaryResponse] = await Promise.all([
+    const marketParams = new URLSearchParams({
+      start_date: startDate,
+      end_date: endDate
+    });
+
+    const [metricsResponse, summaryResponse, btcResponse, fngResponse] = await Promise.all([
       fetch(`${API_BASE_URL}/metrics?${params}`),
-      fetch(`${API_BASE_URL}/metrics/summary?${params}`)
+      fetch(`${API_BASE_URL}/metrics/summary?${params}`),
+      fetch(`${API_BASE_URL}/btc-price?${marketParams}`),
+      fetch(`${API_BASE_URL}/fear-greed?${marketParams}`)
     ]);
     
     if (!metricsResponse.ok || !summaryResponse.ok) {
@@ -225,15 +236,21 @@ async function fetchMetrics() {
     
     const metricsResult = await metricsResponse.json();
     const summaryResult = await summaryResponse.json();
+    const btcResult = btcResponse.ok ? await btcResponse.json() : { data: [] };
+    const fngResult = fngResponse.ok ? await fngResponse.json() : { data: [] };
     
     currentMetrics = metricsResult.data || [];
     currentRsiData = metricsResult.rsi || {};
+    currentBtcData = btcResult.data || [];
+    currentFngData = fngResult.data || [];
     
     if (currentMetrics.length === 0) {
       showNoData();
     } else {
       updateChart(currentMetrics);
       updateRsiChart(currentRsiData, channelIds);
+      updateBtcChart(currentBtcData);
+      updateFngChart(currentFngData);
       updateSummaryStats(summaryResult.data, currentMetrics);
       document.getElementById('noDataMessage').style.display = 'none';
     }
@@ -258,6 +275,16 @@ function showNoData() {
   if (rsiChart) {
     rsiChart.destroy();
     rsiChart = null;
+  }
+
+  if (btcChart) {
+    btcChart.destroy();
+    btcChart = null;
+  }
+
+  if (fngChart) {
+    fngChart.destroy();
+    fngChart = null;
   }
   
   resetSummaryStats();
@@ -717,6 +744,258 @@ function resetTrendStats() {
   document.getElementById('trendValue').textContent = '-';
   document.getElementById('trendPercent').textContent = '-';
 }
+
+function updateBtcChart(btcData) {
+  if (!btcData || btcData.length === 0) {
+    if (btcChart) {
+      btcChart.destroy();
+      btcChart = null;
+    }
+    return;
+  }
+
+  const dates = btcData.map(d => formatDate(d.date));
+  const prices = btcData.map(d => d.close);
+
+  if (btcChart) {
+    btcChart.destroy();
+  }
+
+  const ctx = document.getElementById('btcChart').getContext('2d');
+  btcChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [{
+        label: 'BTC Price (USD)',
+        data: prices,
+        borderColor: '#f7931a',
+        backgroundColor: 'rgba(247, 147, 26, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        pointBackgroundColor: '#f7931a',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 2,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            usePointStyle: true,
+            padding: 15,
+            font: {
+              size: 12,
+              weight: '500'
+            }
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          padding: 12,
+          titleFont: {
+            size: 14,
+            weight: 'bold'
+          },
+          bodyFont: {
+            size: 13
+          },
+          bodySpacing: 6,
+          callbacks: {
+            label: function(context) {
+              const dataPoint = btcData[context.dataIndex];
+              return [
+                `Close: $${dataPoint.close.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                `High: $${dataPoint.high.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                `Low: $${dataPoint.low.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+              ];
+            }
+          }
+        },
+        title: {
+          display: false
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: false,
+          ticks: {
+            callback: function(value) {
+              return '$' + value.toLocaleString();
+            },
+            font: {
+              size: 11
+            }
+          },
+          grid: {
+            color: 'rgba(0, 0, 0, 0.05)'
+          }
+        },
+        x: {
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45,
+            font: {
+              size: 10
+            }
+          },
+          grid: {
+            display: false
+          }
+        }
+      }
+    }
+  });
+}
+
+function updateFngChart(fngData) {
+  if (!fngData || fngData.length === 0) {
+    if (fngChart) {
+      fngChart.destroy();
+      fngChart = null;
+    }
+    return;
+  }
+
+  const dates = fngData.map(d => formatDate(d.date));
+  const values = fngData.map(d => d.value);
+
+  if (fngChart) {
+    fngChart.destroy();
+  }
+
+  const ctx = document.getElementById('fngChart').getContext('2d');
+  fngChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [{
+        label: 'Fear & Greed Index',
+        data: values,
+        borderColor: '#667eea',
+        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        pointBackgroundColor: function(context) {
+          const value = context.parsed.y;
+          if (value <= 24) return '#dc2626';
+          if (value <= 49) return '#f97316';
+          if (value <= 74) return '#fbbf24';
+          return '#10b981';
+        },
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        segment: {
+          borderColor: function(context) {
+            const value = context.p1.parsed.y;
+            if (value <= 24) return '#dc2626';
+            if (value <= 49) return '#f97316';
+            if (value <= 74) return '#fbbf24';
+            return '#10b981';
+          }
+        }
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 2,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            usePointStyle: true,
+            padding: 15,
+            font: {
+              size: 12,
+              weight: '500'
+            }
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          padding: 12,
+          titleFont: {
+            size: 14,
+            weight: 'bold'
+          },
+          bodyFont: {
+            size: 13
+          },
+          bodySpacing: 6,
+          callbacks: {
+            label: function(context) {
+              const dataPoint = fngData[context.dataIndex];
+              return [
+                `Value: ${dataPoint.value}`,
+                `Classification: ${dataPoint.classification}`
+              ];
+            }
+          }
+        },
+        title: {
+          display: false
+        }
+      },
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: {
+            stepSize: 25,
+            callback: function(value) {
+              return value;
+            },
+            font: {
+              size: 11
+            }
+          },
+          grid: {
+            color: function(context) {
+              if (context.tick.value === 25 || context.tick.value === 50 || context.tick.value === 75) {
+                return 'rgba(0, 0, 0, 0.2)';
+              }
+              return 'rgba(0, 0, 0, 0.05)';
+            }
+          }
+        },
+        x: {
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45,
+            font: {
+              size: 10
+            }
+          },
+          grid: {
+            display: false
+          }
+        }
+      }
+    }
+  });
+}
+
 
 async function collectHistoricalData() {
   const startDateInput = document.getElementById('collectStartDate');

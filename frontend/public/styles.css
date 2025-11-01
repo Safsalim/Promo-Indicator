@@ -854,3 +854,77 @@ footer {
     font-size: 0.95em;
   }
 }
+
+/* BTC Chart Section */
+.btc-section {
+  margin-top: 30px;
+}
+
+/* Fear & Greed Index Legend */
+.fng-legend {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.fng-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  font-size: 13px;
+}
+
+.fng-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.fng-legend-item.extreme-fear .fng-indicator {
+  background-color: #dc2626;
+}
+
+.fng-legend-item.fear .fng-indicator {
+  background-color: #f97316;
+}
+
+.fng-legend-item.greed .fng-indicator {
+  background-color: #fbbf24;
+}
+
+.fng-legend-item.extreme-greed .fng-indicator {
+  background-color: #10b981;
+}
+
+/* Fear & Greed Section */
+.fng-section {
+  margin-top: 30px;
+}
+
+/* Market data sections */
+.btc-section,
+.fng-section {
+  background: var(--bg-primary);
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+}
+
+.btc-section h2,
+.fng-section h2 {
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  font-size: 1.5rem;
+}
+
+.btc-section .section-description,
+.fng-section .section-description {
+  color: var(--text-secondary);
+  margin-bottom: 15px;
+  font-size: 0.95rem;
+}

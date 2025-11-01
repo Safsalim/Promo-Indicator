@@ -81,6 +81,28 @@ function initializeSchema() {
     CREATE INDEX IF NOT EXISTS idx_channels_is_active ON channels(is_active);
     CREATE INDEX IF NOT EXISTS idx_live_stream_videos_channel_date ON live_stream_videos(channel_id, date);
     CREATE INDEX IF NOT EXISTS idx_live_stream_videos_video_id ON live_stream_videos(video_id);
+
+    CREATE TABLE IF NOT EXISTS btc_price_data (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL UNIQUE,
+      open REAL,
+      high REAL,
+      low REAL,
+      close REAL,
+      volume REAL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS fear_greed_index (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL UNIQUE,
+      value INTEGER,
+      classification TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_btc_price_data_date ON btc_price_data(date);
+    CREATE INDEX IF NOT EXISTS idx_fear_greed_index_date ON fear_greed_index(date);
   `);
 
   console.log('Database schema initialized successfully');
