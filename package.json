@@ -8,6 +8,8 @@
     "dev": "nodemon src/app.js",
     "test": "node src/tests/youtubeApiClient.test.js",
     "test:youtube-api": "node src/tests/youtubeApiClient.test.js",
+    "test:dashboard": "node src/tests/dashboardApi.test.js",
+    "test:dashboard-integration": "node src/tests/dashboardApi.integration.test.js",
     "example:youtube-api": "node src/examples/youtubeApiExample.js",
     "init-db": "node src/scripts/initDatabase.js",
     "create-db": "node src/scripts/createDatabase.js",

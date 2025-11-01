@@ -167,6 +167,15 @@ http://localhost:3000
 - `GET /api/promo/indicators/:videoId` - Get saved promo indicators
 - `POST /api/promo/indicators` - Save new promo indicator
 
+### Dashboard API Routes
+
+- `GET /api/channels` - List all tracked channels with metadata
+- `POST /api/channels` - Add a new channel to track (automatically resolves YouTube handle)
+- `GET /api/metrics` - Query live stream metrics with filters (channel_ids, start_date, end_date, limit)
+- `GET /api/metrics/summary` - Get aggregated summary statistics with trends and channel breakdowns
+
+For detailed documentation, see [DASHBOARD_API.md](./DASHBOARD_API.md).
+
 ### Health Check
 
 - `GET /api/health` - API health status
