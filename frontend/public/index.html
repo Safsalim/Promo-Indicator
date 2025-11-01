@@ -3,49 +3,149 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Promo-Indicator Dashboard</title>
+  <title>YouTube Live Stream Sentiment Dashboard</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>Promo-Indicator Dashboard</h1>
-      <p>YouTube Promotional Analytics & Monitoring</p>
+      <h1>YouTube Live Stream Sentiment Dashboard</h1>
+      <p>Track live stream view counts for sentiment analysis</p>
     </header>
 
     <main>
-      <section class="search-section">
-        <h2>Search & Monitor Videos</h2>
-        <div class="search-form">
-          <input type="text" id="videoIdInput" placeholder="Enter YouTube Video ID">
-          <button id="searchBtn">Analyze Video</button>
+      <!-- Add Channel Form -->
+      <section class="add-channel-section">
+        <h2>Add Channel to Track</h2>
+        <div class="add-channel-form">
+          <input 
+            type="text" 
+            id="channelHandleInput" 
+            placeholder="Enter YouTube channel handle (e.g., @ciidb)"
+            aria-label="Channel handle"
+          >
+          <button id="addChannelBtn" class="btn-primary">
+            <span class="btn-text">Add Channel</span>
+            <span class="btn-loading" style="display: none;">Adding...</span>
+          </button>
+        </div>
+        <div id="addChannelFeedback" class="feedback-message" style="display: none;"></div>
+      </section>
+
+      <!-- Filters Section -->
+      <section class="filters-section">
+        <h2>Filters</h2>
+        <div class="filters-container">
+          <!-- Channel Selector -->
+          <div class="filter-group">
+            <label for="channelSelector">Select Channels</label>
+            <select id="channelSelector" multiple size="5" aria-label="Channel selector">
+              <option value="">Loading channels...</option>
+            </select>
+            <div class="filter-helper">
+              Hold Ctrl/Cmd to select multiple channels for comparison
+            </div>
+          </div>
+
+          <!-- Date Range Picker -->
+          <div class="filter-group">
+            <label>Date Range</label>
+            <div class="date-presets">
+              <button class="preset-btn" data-days="7">Last 7 Days</button>
+              <button class="preset-btn" data-days="30">Last 30 Days</button>
+              <button class="preset-btn active" data-days="90">Last 90 Days</button>
+              <button class="preset-btn" data-days="all">All Time</button>
+            </div>
+            <div class="date-inputs">
+              <div class="date-input-group">
+                <label for="startDate">Start Date</label>
+                <input type="date" id="startDate" aria-label="Start date">
+              </div>
+              <div class="date-input-group">
+                <label for="endDate">End Date</label>
+                <input type="date" id="endDate" aria-label="End date">
+              </div>
+            </div>
+          </div>
+
+          <!-- Apply Filters Button -->
+          <div class="filter-actions">
+            <button id="applyFiltersBtn" class="btn-primary btn-large">Apply Filters</button>
+          </div>
         </div>
       </section>
 
-      <section class="video-info" id="videoInfo" style="display: none;">
-        <h2>Video Information</h2>
-        <div id="videoDetails"></div>
+      <!-- Summary Statistics Cards -->
+      <section class="stats-section">
+        <h2>Summary Statistics</h2>
+        <div id="statsCards" class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-content">
+              <div class="stat-label">Total Views</div>
+              <div class="stat-value" id="totalViews">-</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📈</div>
+            <div class="stat-content">
+              <div class="stat-label">Average Daily Views</div>
+              <div class="stat-value" id="avgDailyViews">-</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🔥</div>
+            <div class="stat-content">
+              <div class="stat-label">Peak View Day</div>
+              <div class="stat-value" id="peakDay">-</div>
+              <div class="stat-subtext" id="peakDayViews">-</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon trend-icon" id="trendIcon">➡️</div>
+            <div class="stat-content">
+              <div class="stat-label">Trend</div>
+              <div class="stat-value" id="trendValue">-</div>
+              <div class="stat-subtext" id="trendPercent">-</div>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <section class="charts-section">
-        <h2>Analytics Dashboard</h2>
+      <!-- Main Chart -->
+      <section class="chart-section">
+        <h2>Live Stream View Count Trends</h2>
+        <div class="sentiment-indicators">
+          <div class="sentiment-zone euphoria">
+            <span class="zone-label">Euphoria Zone</span>
+            <span class="zone-desc">High view activity - potential market top</span>
+          </div>
+          <div class="sentiment-zone fear">
+            <span class="zone-label">Fear Zone</span>
+            <span class="zone-desc">Low view activity - potential market bottom</span>
+          </div>
+        </div>
         <div class="chart-container">
+          <div id="chartLoading" class="loading-state" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading chart data...</p>
+          </div>
           <canvas id="viewsChart"></canvas>
         </div>
-        <div class="chart-container">
-          <canvas id="engagementChart"></canvas>
-        </div>
+        <div id="chartLegend" class="chart-legend"></div>
       </section>
 
-      <section class="indicators-section">
-        <h2>Promo Indicators</h2>
-        <div id="indicatorsList"></div>
-      </section>
+      <!-- No Data Message -->
+      <div id="noDataMessage" class="no-data-message" style="display: none;">
+        <div class="no-data-icon">📊</div>
+        <h3>No Data Available</h3>
+        <p>Select channels and a date range, then click "Apply Filters" to view the data.</p>
+      </div>
     </main>
 
     <footer>
-      <p>&copy; 2024 Promo-Indicator. All rights reserved.</p>
+      <p>&copy; 2024 YouTube Live Stream Sentiment Dashboard. Data for educational and analytical purposes.</p>
     </footer>
   </div>
 
