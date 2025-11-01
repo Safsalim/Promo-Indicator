@@ -76,11 +76,27 @@ function initializeSchema() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       channel_id INTEGER NOT NULL,
       date TEXT NOT NULL,
-      total_live_stream_views INTEGER DEFAULT 0,
+      peak_live_stream_views INTEGER DEFAULT 0,
       live_stream_count INTEGER DEFAULT 0,
+      peak_video_id TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (channel_id) REFERENCES channels(id),
       UNIQUE(channel_id, date)
+    );
+
+    CREATE TABLE IF NOT EXISTS live_stream_videos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      video_id TEXT NOT NULL,
+      channel_id INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      title TEXT,
+      url TEXT,
+      view_count INTEGER DEFAULT 0,
+      published_at DATETIME,
+      broadcast_type TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (channel_id) REFERENCES channels(id),
+      UNIQUE(video_id, channel_id, date)
     );
 
     CREATE INDEX IF NOT EXISTS idx_video_stats_video_id ON video_stats(video_id);
@@ -91,6 +107,8 @@ function initializeSchema() {
     CREATE INDEX IF NOT EXISTS idx_live_stream_metrics_date ON live_stream_metrics(date);
     CREATE INDEX IF NOT EXISTS idx_channels_channel_handle ON channels(channel_handle);
     CREATE INDEX IF NOT EXISTS idx_channels_is_active ON channels(is_active);
+    CREATE INDEX IF NOT EXISTS idx_live_stream_videos_channel_date ON live_stream_videos(channel_id, date);
+    CREATE INDEX IF NOT EXISTS idx_live_stream_videos_video_id ON live_stream_videos(video_id);
   `);
 
   console.log('Database schema initialized successfully');

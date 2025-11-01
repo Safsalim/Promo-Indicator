@@ -42,7 +42,7 @@ function calculateRSIWithDates(metricsData, period = 14) {
     return new Date(a.date) - new Date(b.date);
   });
 
-  const values = sortedData.map(m => m.total_live_stream_views || 0);
+  const values = sortedData.map(m => m.peak_live_stream_views || 0);
   const rsiValues = calculateRSI(values, period);
 
   if (!rsiValues || rsiValues.length === 0) {
@@ -56,7 +56,7 @@ function calculateRSIWithDates(metricsData, period = 14) {
       result.push({
         date: sortedData[dataIndex].date,
         rsi: rsiValues[i],
-        value: sortedData[dataIndex].total_live_stream_views
+        value: sortedData[dataIndex].peak_live_stream_views
       });
     }
   }

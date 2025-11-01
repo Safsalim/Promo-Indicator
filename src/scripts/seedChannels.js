@@ -60,7 +60,7 @@ try {
       const metricsData = {
         channel_id: channelId,
         date: date,
-        total_live_stream_views: Math.floor(Math.random() * 10000) + 1000,
+        peak_live_stream_views: Math.floor(Math.random() * 10000) + 1000,
         live_stream_count: Math.floor(Math.random() * 5) + 1
       };
 

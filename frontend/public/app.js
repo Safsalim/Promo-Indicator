@@ -276,7 +276,7 @@ function updateChart(metrics) {
     }
     groupedByChannel[channelId].data.push({
       date: metric.date,
-      views: metric.total_live_stream_views
+      views: metric.peak_live_stream_views
     });
   });
   
@@ -360,8 +360,27 @@ function updateChart(metrics) {
               if (label) {
                 label += ': ';
               }
-              label += formatNumber(context.parsed.y) + ' views';
+              label += formatNumber(context.parsed.y) + ' peak views';
+              
+              // Find the metric data to check stream count
+              const dateIndex = context.dataIndex;
+              const channelLabel = context.dataset.label;
+              const metric = currentMetrics.find(m => 
+                (m.channel_name || m.channel_handle) === channelLabel && 
+                allDates[dateIndex] === m.date
+              );
+              
+              if (metric && metric.live_stream_count > 1) {
+                return [
+                  label,
+                  `(${metric.live_stream_count} streams on this day)`
+                ];
+              }
+              
               return label;
+            },
+            title: function(context) {
+              return formatDate(allDates[context[0].dataIndex]);
             }
           }
         },

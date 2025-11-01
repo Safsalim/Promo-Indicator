@@ -94,7 +94,8 @@ class LiveStreamCollector {
       if (!streamsByDate[publishedDate]) {
         streamsByDate[publishedDate] = {
           count: 0,
-          totalViews: 0,
+          peakViews: 0,
+          peakVideoId: null,
           videoIds: [],
           videos: []
         };
@@ -124,7 +125,11 @@ class LiveStreamCollector {
       }
 
       streamsByDate[publishedDate].count++;
-      streamsByDate[publishedDate].totalViews += viewCount;
+      // Use peak (max) views instead of sum
+      if (viewCount > streamsByDate[publishedDate].peakViews) {
+        streamsByDate[publishedDate].peakViews = viewCount;
+        streamsByDate[publishedDate].peakVideoId = videoId;
+      }
       streamsByDate[publishedDate].videoIds.push(videoId);
       streamsByDate[publishedDate].videos.push(videoDetails);
     });
@@ -171,18 +176,23 @@ class LiveStreamCollector {
         const data = streamsByDate[date];
         
         if (dryRun) {
-          this.logger.log(`[DRY RUN] Would store: Date=${date}, Views=${data.totalViews}, Count=${data.count}`);
+          this.logger.log(`[DRY RUN] Would store: Date=${date}, Peak Views=${data.peakViews}, Count=${data.count}`);
+          if (data.count > 1) {
+            this.logger.log(`[DRY RUN] Peak video: ${data.peakVideoId}`);
+          }
           this.logger.log(`[DRY RUN] Videos that would be stored:`);
           data.videos.forEach(video => {
-            this.logger.log(`  - ${video.videoId}: "${video.title}" (${video.viewCount} views)`);
+            const isPeak = video.videoId === data.peakVideoId;
+            this.logger.log(`  ${isPeak ? '★' : '-'} ${video.videoId}: "${video.title}" (${video.viewCount} views)${isPeak ? ' [PEAK]' : ''}`);
           });
         } else {
           try {
             LiveStreamMetrics.createOrUpdate({
               channel_id: channelDbId,
               date: date,
-              total_live_stream_views: data.totalViews,
-              live_stream_count: data.count
+              peak_live_stream_views: data.peakViews,
+              live_stream_count: data.count,
+              peak_video_id: data.peakVideoId
             });
 
             LiveStreamVideo.deleteByChannelIdAndDate(channelDbId, date);
@@ -204,7 +214,8 @@ class LiveStreamCollector {
               }
             }
 
-            this.logger.log(`✓ Stored: Date=${date}, Views=${data.totalViews}, Count=${data.count}`);
+            const countInfo = data.count > 1 ? ` (${data.count} streams, peak: ${data.peakVideoId})` : '';
+            this.logger.log(`✓ Stored: Date=${date}, Peak Views=${data.peakViews}${countInfo}`);
             this.logger.log(`✓ Stored ${data.videos.length} video record(s) for audit trail`);
             processedCount++;
           } catch (error) {
