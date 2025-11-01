@@ -1215,6 +1215,171 @@ function setupEventListeners() {
       updateOverlayChart();
     }
   });
+  
+  document.getElementById('exportDataBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleExportDropdown();
+  });
+  
+  document.querySelectorAll('.dropdown-item[data-format]').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const format = e.currentTarget.dataset.format;
+      exportData(format);
+    });
+  });
+  
+  document.getElementById('copyPromptBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    copyAIPrompt();
+  });
+  
+  document.addEventListener('click', (e) => {
+    const dropdown = document.querySelector('.export-dropdown');
+    const dropdownContent = document.getElementById('exportDropdown');
+    if (!dropdown.contains(e.target)) {
+      dropdownContent.style.display = 'none';
+      dropdown.classList.remove('active');
+    }
+  });
+}
+
+function toggleExportDropdown() {
+  const dropdown = document.querySelector('.export-dropdown');
+  const dropdownContent = document.getElementById('exportDropdown');
+  
+  if (dropdownContent.style.display === 'none' || !dropdownContent.style.display) {
+    dropdownContent.style.display = 'block';
+    dropdown.classList.add('active');
+  } else {
+    dropdownContent.style.display = 'none';
+    dropdown.classList.remove('active');
+  }
+}
+
+async function exportData(format) {
+  try {
+    const channelSelector = document.getElementById('channelSelector');
+    const selectedChannels = Array.from(channelSelector.selectedOptions).map(option => option.value);
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    
+    if (!startDate || !endDate) {
+      alert('Please select a date range first using the filters above.');
+      return;
+    }
+    
+    if (selectedChannels.length === 0) {
+      alert('Please select at least one channel from the filters above.');
+      return;
+    }
+    
+    const params = new URLSearchParams({
+      format: format,
+      start_date: startDate,
+      end_date: endDate,
+      channels: selectedChannels.join(','),
+      rsi_period: currentRsiPeriod
+    });
+    
+    const exportUrl = `${API_BASE_URL}/export/data?${params.toString()}`;
+    
+    const exportBtn = document.getElementById('exportDataBtn');
+    const originalContent = exportBtn.innerHTML;
+    exportBtn.innerHTML = '<span>⏳ Exporting...</span>';
+    exportBtn.disabled = true;
+    
+    const response = await fetch(exportUrl);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Export failed');
+    }
+    
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let filename = `sentiment-data-${startDate}-to-${endDate}.${format}`;
+    
+    if (contentDisposition) {
+      const matches = /filename="([^"]+)"/.exec(contentDisposition);
+      if (matches && matches[1]) {
+        filename = matches[1];
+      }
+    }
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    
+    exportBtn.innerHTML = originalContent;
+    exportBtn.disabled = false;
+    
+    const dropdown = document.querySelector('.export-dropdown');
+    const dropdownContent = document.getElementById('exportDropdown');
+    dropdownContent.style.display = 'none';
+    dropdown.classList.remove('active');
+    
+    const tempMsg = document.createElement('div');
+    tempMsg.className = 'feedback-message success';
+    tempMsg.textContent = `✓ Data exported successfully as ${format.toUpperCase()}!`;
+    tempMsg.style.position = 'fixed';
+    tempMsg.style.top = '20px';
+    tempMsg.style.right = '20px';
+    tempMsg.style.zIndex = '10000';
+    tempMsg.style.padding = '15px 20px';
+    tempMsg.style.borderRadius = '8px';
+    tempMsg.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+    document.body.appendChild(tempMsg);
+    
+    setTimeout(() => {
+      tempMsg.remove();
+    }, 3000);
+    
+  } catch (error) {
+    console.error('Error exporting data:', error);
+    alert(`Failed to export data: ${error.message}`);
+    
+    const exportBtn = document.getElementById('exportDataBtn');
+    exportBtn.innerHTML = '<span>📥 Export Data</span><span class="dropdown-arrow">▼</span>';
+    exportBtn.disabled = false;
+  }
+}
+
+function copyAIPrompt() {
+  const prompt = `Analyze this cryptocurrency sentiment data containing YouTube live stream views, Crypto Fear & Greed Index, and Bitcoin prices.
+
+Please:
+1. Identify correlations between these metrics
+2. Find if YouTube views lead or lag Bitcoin price movements
+3. Discover patterns where high/low views predict price changes
+4. Suggest optimal combinations for buy/sell signals
+5. Identify any divergences or anomalies
+
+Focus on actionable trading insights and provide specific recommendations based on the data patterns you observe.`;
+
+  navigator.clipboard.writeText(prompt).then(() => {
+    const btn = document.getElementById('copyPromptBtn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="dropdown-icon">✓</span><span>Copied to clipboard!</span>';
+    btn.style.backgroundColor = 'var(--success-color)';
+    btn.style.color = 'white';
+    
+    setTimeout(() => {
+      btn.innerHTML = originalText;
+      btn.style.backgroundColor = '';
+      btn.style.color = '';
+    }, 2000);
+  }).catch(err => {
+    console.error('Failed to copy prompt:', err);
+    alert('Failed to copy prompt to clipboard. Please copy it manually from the console.');
+    console.log('AI Analysis Prompt:\n\n' + prompt);
+  });
 }
 
 async function init() {
