@@ -561,6 +561,102 @@ router.get('/metrics/:date/videos', (req, res) => {
   }
 });
 
+// GET /api/debug/metrics/:channelId/:date - Debug endpoint to inspect raw metrics data
+router.get('/debug/metrics/:channelId/:date', (req, res) => {
+  try {
+    const { channelId, date } = req.params;
+
+    // Validate channel ID
+    const channelIdInt = parseInt(channelId, 10);
+    if (isNaN(channelIdInt) || channelIdInt <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'channelId must be a valid positive integer'
+      });
+    }
+
+    // Validate date
+    if (!isValidDate(date)) {
+      return res.status(400).json({
+        success: false,
+        error: 'date must be in YYYY-MM-DD format'
+      });
+    }
+
+    // Get channel info
+    const channel = Channel.findById(channelIdInt);
+    if (!channel) {
+      return res.status(404).json({
+        success: false,
+        error: `Channel with ID ${channelIdInt} not found`
+      });
+    }
+
+    // Get metrics for this channel/date
+    const metrics = LiveStreamMetrics.findByChannelIdAndDate(channelIdInt, date);
+    
+    if (!metrics) {
+      return res.status(404).json({
+        success: false,
+        error: `No metrics found for channel ${channel.channel_handle} on ${date}`,
+        data: {
+          date: date,
+          channel_handle: channel.channel_handle,
+          channel_name: channel.channel_name,
+          channel_id: channelIdInt,
+          total_live_stream_views: 0,
+          live_stream_count: 0,
+          note: 'No data collected for this date'
+        }
+      });
+    }
+
+    // Get videos for this channel/date to show what was counted
+    const videos = LiveStreamVideo.findByChannelIdAndDate(channelIdInt, date);
+
+    res.json({
+      success: true,
+      data: {
+        date: metrics.date,
+        channel_handle: channel.channel_handle,
+        channel_name: channel.channel_name,
+        channel_id: channelIdInt,
+        youtube_channel_id: channel.channel_id,
+        total_live_stream_views: metrics.total_live_stream_views,
+        live_stream_count: metrics.live_stream_count,
+        note: metrics.live_stream_count > 1 
+          ? 'Multiple videos were aggregated' 
+          : metrics.live_stream_count === 1 
+            ? 'Single video counted'
+            : 'No videos counted',
+        videos: videos.map(v => ({
+          video_id: v.video_id,
+          title: v.title,
+          url: v.url,
+          view_count: v.view_count,
+          published_at: v.published_at,
+          broadcast_type: v.broadcast_type
+        })),
+        raw_metrics_record: {
+          id: metrics.id,
+          channel_id: metrics.channel_id,
+          date: metrics.date,
+          total_live_stream_views: metrics.total_live_stream_views,
+          live_stream_count: metrics.live_stream_count,
+          created_at: metrics.created_at
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching debug metrics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch debug metrics',
+      message: error.message
+    });
+  }
+});
+
 // Helper function to validate date format (YYYY-MM-DD)
 function isValidDate(dateString) {
   const regex = /^\d{4}-\d{2}-\d{2}$/;
@@ -581,7 +677,7 @@ function isValidDate(dateString) {
 // POST /api/collect-metrics - Trigger metrics collection
 router.post('/collect-metrics', async (req, res) => {
   try {
-    const { start_date, end_date, channel_ids } = req.body;
+    const { start_date, end_date, channel_ids, verbose } = req.body;
 
     // Input validation
     if (start_date && !isValidDate(start_date)) {
@@ -637,7 +733,8 @@ router.post('/collect-metrics', async (req, res) => {
       startDate: start_date || null,
       endDate: end_date || null,
       channelIds: channelIdsArray,
-      dryRun: false
+      dryRun: false,
+      verbose: verbose || false
     };
 
     const results = await liveStreamCollector.collectMetrics(collectionOptions);

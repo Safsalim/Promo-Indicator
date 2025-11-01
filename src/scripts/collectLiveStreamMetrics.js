@@ -11,6 +11,7 @@ function parseArguments() {
     endDate: null,
     channelIds: [],
     dryRun: false,
+    verbose: false,
     help: false
   };
 
@@ -44,6 +45,11 @@ function parseArguments() {
         options.dryRun = true;
         break;
       
+      case '-v':
+      case '--verbose':
+        options.verbose = true;
+        break;
+      
       default:
         console.error(`Unknown option: ${arg}`);
         options.help = true;
@@ -65,6 +71,7 @@ Options:
   -e, --end-date DATE     End date (YYYY-MM-DD, default: same as start date)
   -c, --channels IDS      Comma-separated channel IDs to process (default: all active)
   -d, --dry-run           Run without saving data (preview mode)
+  -v, --verbose           Enable verbose logging with detailed video information
 
 Examples:
   # Collect metrics for yesterday (default)
@@ -82,8 +89,11 @@ Examples:
   # Dry run to preview without saving
   node collectLiveStreamMetrics.js --dry-run
 
+  # Verbose mode for debugging
+  node collectLiveStreamMetrics.js --start-date 2024-08-28 --end-date 2024-08-28 --verbose
+
   # Combine options
-  node collectLiveStreamMetrics.js -s 2024-01-01 -e 2024-01-07 -c 1,2 -d
+  node collectLiveStreamMetrics.js -s 2024-01-01 -e 2024-01-07 -c 1,2 -d -v
 `);
 }
 
@@ -131,7 +141,8 @@ async function main() {
       startDate: options.startDate,
       endDate: options.endDate,
       channelIds: options.channelIds.length > 0 ? options.channelIds : null,
-      dryRun: options.dryRun
+      dryRun: options.dryRun,
+      verbose: options.verbose
     };
 
     const results = await liveStreamCollector.collectMetrics(collectionOptions);

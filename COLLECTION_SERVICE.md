@@ -36,6 +36,7 @@ Command-line interface for running data collection.
 - `-e, --end-date DATE` - End date (YYYY-MM-DD, default: same as start date)
 - `-c, --channels IDS` - Comma-separated channel IDs (default: all active channels)
 - `-d, --dry-run` - Preview mode without saving data
+- `-v, --verbose` - Enable verbose logging with detailed video information
 
 **Usage Examples:**
 ```bash
@@ -53,6 +54,12 @@ npm run collect-metrics -- --channels 1,2,3
 
 # Dry run
 npm run collect-metrics -- --dry-run
+
+# Verbose mode for debugging (shows detailed video information)
+npm run collect-metrics -- --start-date 2024-08-28 --end-date 2024-08-28 --verbose
+
+# Combined options
+npm run collect-metrics -- -s 2024-08-28 -e 2024-08-28 -v
 ```
 
 ### 3. Channel Management CLI (`src/scripts/manageChannels.js`)
@@ -154,6 +161,49 @@ Successful: 2
 Failed: 0
 ============================================================
 ```
+
+### Verbose Mode Output
+
+When running with the `--verbose` flag, the collector provides detailed information about each video found:
+
+```
+============================================================
+Live Stream Metrics Collection
+============================================================
+Date range: 2024-08-28 to 2024-08-28
+*** VERBOSE MODE - Detailed logging enabled ***
+============================================================
+
+Processing channel ID 1 (UCxxxxxxxxxxxxxxxx)...
+Date range: 2024-08-28 to 2024-08-28
+Found 1 potential live stream(s).
+
+✓ Found video: abc123xyz
+  Title: "Live Stream Title"
+  Published: 2024-08-28T10:00:00Z
+  Views: 540
+  Type: none
+  URL: https://www.youtube.com/watch?v=abc123xyz
+
+Processing 1 date(s) with live stream data.
+✓ Stored: Date=2024-08-28, Views=540, Count=1
+✓ Stored 1 video record(s) for audit trail
+```
+
+**Verbose Mode Benefits:**
+- Shows exact video IDs and titles being counted
+- Displays published dates and view counts
+- Includes direct YouTube URLs for manual verification
+- Shows broadcast type (none, live, upcoming)
+- Helps identify duplicates or unexpected videos
+- Perfect for debugging data accuracy issues
+
+**When to Use Verbose Mode:**
+- Investigating view count discrepancies
+- Debugging Aug 28 or similar anomalies
+- Verifying which videos are being counted
+- First-time data collection for a new channel
+- Auditing historical data collection
 
 ## Error Handling
 

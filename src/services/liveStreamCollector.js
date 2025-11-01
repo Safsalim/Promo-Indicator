@@ -7,6 +7,7 @@ class LiveStreamCollector {
   constructor() {
     this.logger = console;
     this.youtubeClient = new YouTubeApiClient();
+    this.verbose = false;
   }
 
   async getChannelIdByHandle(handle) {
@@ -70,7 +71,9 @@ class LiveStreamCollector {
       const videoType = stats.snippet.categoryId;
       
       if (broadcastContent === 'upcoming') {
-        this.logger.log(`⏭️  Skipping upcoming livestream: ${videoId} - "${stats.snippet.title}"`);
+        if (this.verbose) {
+          this.logger.log(`⏭️  Skipping upcoming livestream: ${videoId} - "${stats.snippet.title}"`);
+        }
         return;
       }
 
@@ -109,12 +112,16 @@ class LiveStreamCollector {
         broadcastType: broadcastContent
       };
 
-      this.logger.log(`✓ Counting video: ${videoId}`);
-      this.logger.log(`  Title: "${stats.snippet.title}"`);
-      this.logger.log(`  Published: ${stats.snippet.publishedAt}`);
-      this.logger.log(`  Views: ${viewCount}`);
-      this.logger.log(`  URL: ${videoUrl}`);
-      this.logger.log(`  Broadcast Type: ${broadcastContent}`);
+      if (this.verbose) {
+        this.logger.log(`\n✓ Found video: ${videoId}`);
+        this.logger.log(`  Title: "${stats.snippet.title}"`);
+        this.logger.log(`  Published: ${stats.snippet.publishedAt}`);
+        this.logger.log(`  Views: ${viewCount}`);
+        this.logger.log(`  Type: ${broadcastContent}`);
+        this.logger.log(`  URL: ${videoUrl}`);
+      } else {
+        this.logger.log(`✓ Counting video: ${videoId} - "${stats.snippet.title}" (${viewCount} views)`);
+      }
 
       streamsByDate[publishedDate].count++;
       streamsByDate[publishedDate].totalViews += viewCount;
@@ -242,8 +249,11 @@ class LiveStreamCollector {
       channelIds = null,
       startDate = null,
       endDate = null,
-      dryRun = false
+      dryRun = false,
+      verbose = false
     } = options;
+
+    this.verbose = verbose;
 
     const start = startDate || this.getPreviousDay();
     const end = endDate || start;
@@ -254,6 +264,9 @@ class LiveStreamCollector {
     this.logger.log(`Date range: ${start} to ${end}`);
     if (dryRun) {
       this.logger.log('*** DRY RUN MODE - No data will be saved ***');
+    }
+    if (verbose) {
+      this.logger.log('*** VERBOSE MODE - Detailed logging enabled ***');
     }
     this.logger.log('='.repeat(60));
 
@@ -343,6 +356,10 @@ class LiveStreamCollector {
 
   setLogger(logger) {
     this.logger = logger;
+  }
+
+  setVerbose(verbose) {
+    this.verbose = verbose;
   }
 }
 

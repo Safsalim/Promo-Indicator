@@ -354,6 +354,133 @@ Invalid channel IDs:
 
 ---
 
+### GET /api/debug/metrics/:channelId/:date
+
+Debug endpoint to inspect raw metrics data for a specific channel and date. This endpoint provides detailed information about what data was collected and stored, including the individual videos that were counted.
+
+**Endpoint:** `GET /api/debug/metrics/:channelId/:date`
+
+**Path Parameters:**
+- `channelId` (integer, required) - Database channel ID
+- `date` (string, required) - Date in YYYY-MM-DD format
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "data": {
+    "date": "2024-08-28",
+    "channel_handle": "@ciidb",
+    "channel_name": "Channel Name",
+    "channel_id": 1,
+    "youtube_channel_id": "UCxxxxxxxxxxxxxxxx",
+    "total_live_stream_views": 540,
+    "live_stream_count": 1,
+    "note": "Single video counted",
+    "videos": [
+      {
+        "video_id": "abc123xyz",
+        "title": "Live Stream Title",
+        "url": "https://www.youtube.com/watch?v=abc123xyz",
+        "view_count": 540,
+        "published_at": "2024-08-28T10:00:00Z",
+        "broadcast_type": "none"
+      }
+    ],
+    "raw_metrics_record": {
+      "id": 42,
+      "channel_id": 1,
+      "date": "2024-08-28",
+      "total_live_stream_views": 540,
+      "live_stream_count": 1,
+      "created_at": "2024-08-29 10:00:00"
+    }
+  }
+}
+```
+
+**Field Descriptions:**
+
+- `date` - The date for which metrics were collected
+- `channel_handle` - YouTube channel handle (e.g., @ciidb)
+- `channel_name` - Full channel name
+- `channel_id` - Database channel ID
+- `youtube_channel_id` - YouTube's channel ID
+- `total_live_stream_views` - Total aggregated view count for the date
+- `live_stream_count` - Number of videos counted for the date
+- `note` - Explanation about the aggregation:
+  - "Multiple videos were aggregated" - When count > 1
+  - "Single video counted" - When count = 1
+  - "No videos counted" - When count = 0
+  - "No data collected for this date" - When no metrics exist
+- `videos` - Array of individual videos that contributed to the metrics
+- `raw_metrics_record` - The actual database record from live_stream_metrics table
+
+**Example Requests:**
+
+Inspect metrics for specific channel and date:
+```bash
+curl http://localhost:3000/api/debug/metrics/1/2024-08-28
+```
+
+**Status Codes:**
+- `200` - Success
+- `400` - Bad Request (invalid channel ID or date format)
+- `404` - Not Found (channel doesn't exist or no metrics for that date)
+- `500` - Internal Server Error
+
+**Error Response Examples:**
+
+Invalid channel ID:
+```json
+{
+  "success": false,
+  "error": "channelId must be a valid positive integer"
+}
+```
+
+Invalid date format:
+```json
+{
+  "success": false,
+  "error": "date must be in YYYY-MM-DD format"
+}
+```
+
+Channel not found:
+```json
+{
+  "success": false,
+  "error": "Channel with ID 999 not found"
+}
+```
+
+No metrics found:
+```json
+{
+  "success": false,
+  "error": "No metrics found for channel @ciidb on 2024-08-28",
+  "data": {
+    "date": "2024-08-28",
+    "channel_handle": "@ciidb",
+    "channel_name": "Channel Name",
+    "channel_id": 1,
+    "total_live_stream_views": 0,
+    "live_stream_count": 0,
+    "note": "No data collected for this date"
+  }
+}
+```
+
+**Use Cases:**
+
+1. **Debug Data Accuracy Issues**: Compare the view counts with actual YouTube values
+2. **Identify Duplicate Counting**: Check if the same video was counted multiple times (historical data before deduplication fix)
+3. **Verify Collection**: Confirm which videos were included in the metrics
+4. **Troubleshoot Anomalies**: Investigate unexpected view count spikes or drops
+
+---
+
 ## Common Error Responses
 
 All endpoints follow a consistent error response format:
