@@ -56,9 +56,11 @@ class LiveStreamCollector {
     const streamsByDate = {};
     const seenVideoIds = new Set();
     const duplicatesDetected = [];
+    const skippedVideos = [];
 
     if (this.verbose) {
-      this.logger.log('📊 Using MAX (peak) aggregation for view counts (not SUM)');
+      this.logger.log('\n📊 Filtering and grouping videos...');
+      this.logger.log('   Using MAX (peak) aggregation for view counts (not SUM)');
     }
 
     streams.forEach(stream => {
@@ -72,12 +74,21 @@ class LiveStreamCollector {
       }
 
       const broadcastContent = stats.snippet.liveBroadcastContent;
-      const videoType = stats.snippet.categoryId;
+      const hasLiveStreamingDetails = !!stats.liveStreamingDetails;
       
       if (broadcastContent === 'upcoming') {
         if (this.verbose) {
           this.logger.log(`⏭️  Skipping upcoming livestream: ${videoId} - "${stats.snippet.title}"`);
         }
+        skippedVideos.push({ videoId, reason: 'upcoming', title: stats.snippet.title });
+        return;
+      }
+      
+      if (!hasLiveStreamingDetails && broadcastContent === 'none') {
+        if (this.verbose) {
+          this.logger.log(`⏭️  Skipping regular video (not a livestream): ${videoId} - "${stats.snippet.title}"`);
+        }
+        skippedVideos.push({ videoId, reason: 'not a livestream', title: stats.snippet.title });
         return;
       }
 
@@ -142,6 +153,13 @@ class LiveStreamCollector {
       this.logger.warn(`\n⚠️  DUPLICATE SUMMARY: ${duplicatesDetected.length} duplicate(s) detected and excluded:`);
       duplicatesDetected.forEach(dup => {
         this.logger.warn(`   - ${dup.videoId}: "${dup.title}" (${dup.viewCount} views)`);
+      });
+    }
+
+    if (this.verbose && skippedVideos.length > 0) {
+      this.logger.log(`\n⏭️  SKIPPED VIDEOS: ${skippedVideos.length} video(s) excluded:`);
+      skippedVideos.forEach(skipped => {
+        this.logger.log(`   - ${skipped.videoId}: "${skipped.title}" (${skipped.reason})`);
       });
     }
 
@@ -290,6 +308,7 @@ class LiveStreamCollector {
     } = options;
 
     this.verbose = verbose;
+    this.youtubeClient.setVerbose(verbose);
 
     const start = startDate || this.getPreviousDay();
     const end = endDate || start;

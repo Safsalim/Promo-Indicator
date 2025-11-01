@@ -16,6 +16,11 @@ class YouTubeApiClient {
     this.rateLimitDelay = 100;
     this.maxRetries = 3;
     this.retryDelay = 1000;
+    this.verbose = false;
+  }
+  
+  setVerbose(verbose) {
+    this.verbose = verbose;
   }
 
   resetQuotaIfNeeded() {
@@ -179,9 +184,7 @@ class YouTubeApiClient {
     
     const {
       maxResults = 50,
-      eventType = 'completed',
-      order = 'date',
-      videoDuration = 'medium'
+      order = 'date'
     } = options;
 
     try {
@@ -195,21 +198,50 @@ class YouTubeApiClient {
       const endDateTime = new Date(endDate);
       endDateTime.setHours(23, 59, 59, 999);
 
+      if (this.verbose) {
+        console.log('\n🔍 YouTube API Search Request:');
+        console.log(`   Channel ID: ${channelId}`);
+        console.log(`   Date Range: ${startDateTime.toISOString()} to ${endDateTime.toISOString()}`);
+        console.log(`   Max Results per page: ${maxResults}`);
+        console.log(`   Order: ${order}`);
+      }
+
       do {
+        const searchParams = {
+          part: ['snippet'],
+          channelId: channelId,
+          type: ['video'],
+          publishedAfter: startDateTime.toISOString(),
+          publishedBefore: endDateTime.toISOString(),
+          maxResults: maxResults,
+          pageToken: pageToken,
+          order: order
+        };
+
+        if (this.verbose) {
+          console.log(`\n📡 API Call (Page ${pageCount + 1}):`);
+          console.log(`   Parameters: ${JSON.stringify(searchParams, null, 2)}`);
+        }
+
         const response = await this.retryableCall(async () => {
-          return await youtube.search.list({
-            part: ['snippet'],
-            channelId: channelId,
-            eventType: eventType,
-            type: ['video'],
-            videoDuration: videoDuration,
-            publishedAfter: startDateTime.toISOString(),
-            publishedBefore: endDateTime.toISOString(),
-            maxResults: maxResults,
-            pageToken: pageToken,
-            order: order
-          });
+          return await youtube.search.list(searchParams);
         }, 100);
+
+        if (this.verbose) {
+          console.log(`\n📥 API Response (Page ${pageCount + 1}):`);
+          console.log(`   Total Results: ${response.data.pageInfo?.totalResults || 0}`);
+          console.log(`   Results in this page: ${response.data.items?.length || 0}`);
+          console.log(`   Next Page Token: ${response.data.nextPageToken || 'none'}`);
+          
+          if (response.data.items && response.data.items.length > 0) {
+            console.log(`\n   Videos found in this page:`);
+            response.data.items.forEach((item, idx) => {
+              console.log(`     ${idx + 1}. ${item.id.videoId} - "${item.snippet.title}"`);
+              console.log(`        Published: ${item.snippet.publishedAt}`);
+              console.log(`        Description: ${item.snippet.description.substring(0, 100)}...`);
+            });
+          }
+        }
 
         if (response.data.items && response.data.items.length > 0) {
           liveStreams.push(...response.data.items);
@@ -224,8 +256,24 @@ class YouTubeApiClient {
         }
       } while (pageToken);
 
+      if (this.verbose) {
+        console.log(`\n✅ Search Complete:`);
+        console.log(`   Total videos found: ${liveStreams.length}`);
+        console.log(`   Pages fetched: ${pageCount}`);
+      }
+
       return liveStreams;
     } catch (error) {
+      if (this.verbose) {
+        console.log(`\n❌ API Error:`);
+        console.log(`   Error type: ${error.name}`);
+        console.log(`   Message: ${error.message}`);
+        if (error.response) {
+          console.log(`   Status: ${error.response.status}`);
+          console.log(`   Response: ${JSON.stringify(error.response.data, null, 2)}`);
+        }
+      }
+      
       if (error instanceof YouTubeApiError) {
         throw error;
       }
@@ -244,8 +292,17 @@ class YouTubeApiClient {
       const chunkSize = 50;
       const allStats = [];
 
+      if (this.verbose) {
+        console.log(`\n📊 Fetching video statistics for ${videoIds.length} video(s)...`);
+      }
+
       for (let i = 0; i < videoIds.length; i += chunkSize) {
         const chunk = videoIds.slice(i, i + chunkSize);
+        
+        if (this.verbose) {
+          console.log(`\n📡 Videos API Call (Chunk ${Math.floor(i / chunkSize) + 1}):`);
+          console.log(`   Video IDs: ${chunk.join(', ')}`);
+        }
         
         const response = await this.retryableCall(async () => {
           return await youtube.videos.list({
@@ -256,7 +313,29 @@ class YouTubeApiClient {
 
         if (response.data.items) {
           allStats.push(...response.data.items);
+          
+          if (this.verbose) {
+            console.log(`\n📥 Video Statistics Response:`);
+            console.log(`   Videos returned: ${response.data.items.length}`);
+            response.data.items.forEach((video, idx) => {
+              console.log(`\n   Video ${idx + 1}: ${video.id}`);
+              console.log(`      Title: "${video.snippet.title}"`);
+              console.log(`      Published: ${video.snippet.publishedAt}`);
+              console.log(`      Live Broadcast Content: ${video.snippet.liveBroadcastContent}`);
+              console.log(`      View Count: ${video.statistics.viewCount || 0}`);
+              console.log(`      Has liveStreamingDetails: ${!!video.liveStreamingDetails}`);
+              if (video.liveStreamingDetails) {
+                console.log(`      Scheduled Start: ${video.liveStreamingDetails.scheduledStartTime || 'N/A'}`);
+                console.log(`      Actual Start: ${video.liveStreamingDetails.actualStartTime || 'N/A'}`);
+                console.log(`      Actual End: ${video.liveStreamingDetails.actualEndTime || 'N/A'}`);
+              }
+            });
+          }
         }
+      }
+
+      if (this.verbose) {
+        console.log(`\n✅ Statistics Complete: Retrieved data for ${allStats.length} video(s)`);
       }
 
       return allStats;

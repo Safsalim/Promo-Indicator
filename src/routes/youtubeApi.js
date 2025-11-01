@@ -21,7 +21,7 @@ router.get('/resolve-channel/:handle', async (req, res) => {
 router.get('/channel/:channelId/livestreams', async (req, res) => {
   try {
     const { channelId } = req.params;
-    const { startDate, endDate, eventType, maxResults } = req.query;
+    const { startDate, endDate, maxResults } = req.query;
     
     if (!startDate || !endDate) {
       return res.status(400).json({
@@ -35,7 +35,6 @@ router.get('/channel/:channelId/livestreams', async (req, res) => {
       startDate,
       endDate,
       {
-        eventType: eventType || 'completed',
         maxResults: parseInt(maxResults) || 50
       }
     );
