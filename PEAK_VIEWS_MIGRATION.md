@@ -52,14 +52,44 @@ This script will:
 
 ### 2. Re-collect Historical Data
 
-To get accurate peak values instead of summed values, re-run the data collection:
+To get accurate peak values instead of summed values, re-run the data collection.
+
+**Option A: Using the Dashboard UI (Recommended)**
+
+1. Open the dashboard in your browser
+2. Scroll to the "Recalculate Data with Peak Aggregation" section
+3. Select the date range you want to recalculate (e.g., 2024-08-01 to 2024-11-01)
+4. Click "Recalculate Data"
+5. The system will show before/after values for any changed dates
+6. Refresh the dashboard to see the updated data
+
+**Option B: Using Command Line**
 
 ```bash
-# Re-collect for a specific date range
-node src/scripts/collectLiveStreamMetrics.js --start-date 2024-08-01 --end-date 2024-08-31
+# Re-collect for a specific date range (shows before/after values)
+npm run recalculate-metrics -- --start-date 2024-08-01 --end-date 2024-08-31 --verbose
 
-# Or re-collect all historical data
-node src/scripts/collectLiveStreamMetrics.js --start-date 2024-01-01 --end-date 2024-12-31
+# Or use the full command
+node src/scripts/collectLiveStreamMetrics.js --start-date 2024-08-01 --end-date 2024-08-31 --verbose
+
+# Re-collect all historical data
+npm run recalculate-metrics -- --start-date 2024-01-01 --end-date 2024-12-31 --verbose
+```
+
+The `--verbose` flag will show:
+- Confirmation that MAX aggregation is being used (not SUM)
+- Before/after values for any dates that changed
+- Which video had the peak views on days with multiple streams
+
+**Example output:**
+```
+📊 Using MAX (peak) aggregation for view counts (not SUM)
+✓ Counting video: abc123 - "Stream 1" (255 views)
+✓ Counting video: def456 - "Stream 2" (285 views)
+🔄 Updated: Date=2024-08-28
+   Views: 540 → 285 (-255)
+   Streams: 2 → 2
+✓ Stored 2 video record(s) for audit trail
 ```
 
 ### 3. Verify the Changes
@@ -70,6 +100,9 @@ node src/scripts/testModels.js
 
 # Check a specific date to see the new values
 node src/scripts/collectLiveStreamMetrics.js --start-date 2024-08-28 --end-date 2024-08-28 --verbose
+
+# Or use the npm script
+npm run recalculate-metrics -- --start-date 2024-08-28 --end-date 2024-08-28 --verbose
 ```
 
 ## UI Changes

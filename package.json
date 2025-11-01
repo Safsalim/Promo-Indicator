@@ -17,6 +17,7 @@
     "seed:channels": "node src/scripts/seedChannels.js",
     "test:models": "node src/scripts/testModels.js",
     "collect-metrics": "node src/scripts/collectLiveStreamMetrics.js",
+    "recalculate-metrics": "node src/scripts/collectLiveStreamMetrics.js",
     "manage-channels": "node src/scripts/manageChannels.js"
   },
   "keywords": [

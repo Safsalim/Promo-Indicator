@@ -791,12 +791,98 @@ async function collectHistoricalData() {
   }
 }
 
+async function recalculateData() {
+  const startDateInput = document.getElementById('recalcStartDate');
+  const endDateInput = document.getElementById('recalcEndDate');
+  const btn = document.getElementById('recalculateDataBtn');
+  const btnText = btn.querySelector('.btn-text');
+  const btnLoading = btn.querySelector('.btn-loading');
+  
+  const startDate = startDateInput.value;
+  const endDate = endDateInput.value;
+  
+  if (!startDate || !endDate) {
+    showFeedback('recalculationFeedback', 'Please select both start and end dates', 'error');
+    return;
+  }
+  
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  if (start > end) {
+    showFeedback('recalculationFeedback', 'Start date must be before or equal to end date', 'error');
+    return;
+  }
+  
+  const diffTime = Math.abs(end - start);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays > 365) {
+    showFeedback('recalculationFeedback', 'Date range cannot exceed 365 days', 'error');
+    return;
+  }
+  
+  const confirmMsg = `This will re-fetch and recalculate data from ${startDate} to ${endDate} using peak (MAX) aggregation. Continue?`;
+  if (!confirm(confirmMsg)) {
+    return;
+  }
+  
+  btn.disabled = true;
+  btnText.style.display = 'none';
+  btnLoading.style.display = 'inline';
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/collect-metrics`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        start_date: startDate,
+        end_date: endDate,
+        verbose: true
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to recalculate metrics');
+    }
+    
+    const successMsg = `Successfully recalculated data with peak aggregation! Processed ${result.data.successful} channel(s).`;
+    showFeedback('recalculationFeedback', successMsg, 'success');
+    
+    console.log('Recalculation results:', result);
+    
+    setTimeout(() => {
+      fetchMetrics();
+    }, 1500);
+    
+  } catch (error) {
+    console.error('Error recalculating metrics:', error);
+    showFeedback('recalculationFeedback', error.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btnText.style.display = 'inline';
+    btnLoading.style.display = 'none';
+  }
+}
+
 function initializeCollectionDates() {
   const endDate = getDateDaysAgo(1);
   const startDate = getDateDaysAgo(30);
   
   document.getElementById('collectStartDate').value = startDate;
   document.getElementById('collectEndDate').value = endDate;
+}
+
+function initializeRecalcDates() {
+  const endDate = getDateDaysAgo(1);
+  const startDate = getDateDaysAgo(90);
+  
+  document.getElementById('recalcStartDate').value = startDate;
+  document.getElementById('recalcEndDate').value = endDate;
 }
 
 function setupEventListeners() {
@@ -811,6 +897,8 @@ function setupEventListeners() {
   document.getElementById('applyFiltersBtn').addEventListener('click', fetchMetrics);
   
   document.getElementById('collectDataBtn').addEventListener('click', collectHistoricalData);
+  
+  document.getElementById('recalculateDataBtn').addEventListener('click', recalculateData);
   
   document.getElementById('rsiPeriod').addEventListener('change', (e) => {
     currentRsiPeriod = parseInt(e.target.value, 10);
@@ -833,6 +921,7 @@ async function init() {
   setupDatePresets();
   initializeDateRange(90);
   initializeCollectionDates();
+  initializeRecalcDates();
   await fetchChannels();
   
   if (allChannels.length > 0) {

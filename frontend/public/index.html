@@ -56,6 +56,32 @@
         </div>
       </section>
 
+      <!-- Recalculate Data Section -->
+      <section class="collection-section recalculate-section">
+        <h2>Recalculate Data with Peak Aggregation</h2>
+        <div class="collection-container">
+          <p class="collection-desc">Re-process existing data to use peak (MAX) view counts instead of sum. Use this to update historical data after the peak view aggregation fix.</p>
+          <div class="collection-form">
+            <div class="date-input-group">
+              <label for="recalcStartDate">Start Date</label>
+              <input type="date" id="recalcStartDate" aria-label="Recalculation start date">
+            </div>
+            <div class="date-input-group">
+              <label for="recalcEndDate">End Date</label>
+              <input type="date" id="recalcEndDate" aria-label="Recalculation end date">
+            </div>
+            <button id="recalculateDataBtn" class="btn-secondary">
+              <span class="btn-text">Recalculate Data</span>
+              <span class="btn-loading" style="display: none;">Recalculating...</span>
+            </button>
+          </div>
+          <div id="recalculationFeedback" class="feedback-message" style="display: none;"></div>
+          <div class="recalc-info">
+            <strong>ℹ️ Note:</strong> This will re-fetch data from YouTube and recalculate using peak (MAX) aggregation. Days with multiple streams will show the highest view count, not the sum.
+          </div>
+        </div>
+      </section>
+
       <!-- Filters Section -->
       <section class="filters-section">
         <h2>Filters</h2>
