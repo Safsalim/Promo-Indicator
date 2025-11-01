@@ -161,6 +161,26 @@ button {
   border: 1px solid #fca5a5;
 }
 
+.collection-container {
+  background-color: var(--bg-secondary);
+  padding: 20px;
+  border-radius: 8px;
+  border: 2px dashed var(--border-color);
+}
+
+.collection-desc {
+  color: var(--text-secondary);
+  margin-bottom: 15px;
+  font-size: 0.95em;
+}
+
+.collection-form {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
 .filters-container {
   display: grid;
   grid-template-columns: 1fr 1fr;

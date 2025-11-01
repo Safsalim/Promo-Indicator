@@ -3,6 +3,7 @@ const router = express.Router();
 const Channel = require('../models/Channel');
 const LiveStreamMetrics = require('../models/LiveStreamMetrics');
 const { YouTubeApiClient, YouTubeApiError } = require('../services/youtubeApiClient');
+const liveStreamCollector = require('../services/liveStreamCollector');
 
 // GET /api/channels - List all tracked channels with their metadata
 router.get('/channels', (req, res) => {
@@ -427,5 +428,91 @@ function isValidDate(dateString) {
 
   return dateString === date.toISOString().split('T')[0];
 }
+
+// POST /api/collect-metrics - Trigger metrics collection
+router.post('/collect-metrics', async (req, res) => {
+  try {
+    const { start_date, end_date, channel_ids } = req.body;
+
+    // Input validation
+    if (start_date && !isValidDate(start_date)) {
+      return res.status(400).json({
+        success: false,
+        error: 'start_date must be in YYYY-MM-DD format'
+      });
+    }
+
+    if (end_date && !isValidDate(end_date)) {
+      return res.status(400).json({
+        success: false,
+        error: 'end_date must be in YYYY-MM-DD format'
+      });
+    }
+
+    let channelIdsArray = null;
+    if (channel_ids) {
+      try {
+        if (Array.isArray(channel_ids)) {
+          channelIdsArray = channel_ids.map(id => parseInt(id, 10));
+        } else if (typeof channel_ids === 'string') {
+          channelIdsArray = channel_ids.split(',').map(id => parseInt(id.trim(), 10));
+        }
+
+        if (channelIdsArray && channelIdsArray.some(id => isNaN(id) || id <= 0)) {
+          return res.status(400).json({
+            success: false,
+            error: 'channel_ids must be valid positive integers'
+          });
+        }
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid channel_ids format'
+        });
+      }
+    }
+
+    // Validate date range
+    if (start_date && end_date) {
+      const start = new Date(start_date);
+      const end = new Date(end_date);
+      if (start > end) {
+        return res.status(400).json({
+          success: false,
+          error: 'start_date must be before or equal to end_date'
+        });
+      }
+    }
+
+    const collectionOptions = {
+      startDate: start_date || null,
+      endDate: end_date || null,
+      channelIds: channelIdsArray,
+      dryRun: false
+    };
+
+    const results = await liveStreamCollector.collectMetrics(collectionOptions);
+
+    res.json({
+      success: results.failed === 0,
+      data: {
+        total_channels: results.totalChannels,
+        successful: results.successful,
+        failed: results.failed,
+        details: results.details
+      },
+      message: results.failed === 0 
+        ? 'Collection completed successfully' 
+        : `Collection completed with ${results.failed} failure(s)`
+    });
+  } catch (error) {
+    console.error('Error collecting metrics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to collect metrics',
+      message: error.message
+    });
+  }
+});
 
 module.exports = router;
