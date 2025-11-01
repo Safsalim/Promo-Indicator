@@ -477,6 +477,61 @@ npm run test:models
 
 **Note**: Schema initialization scripts use `CREATE TABLE IF NOT EXISTS`, so they're safe to run multiple times. For detailed database documentation, migration guides, and usage examples, see [DATABASE.md](./DATABASE.md).
 
+## YouTube API Integration
+
+The project includes a comprehensive YouTube Data API v3 integration with advanced features:
+
+### Features
+
+- ✅ **Channel Handle Resolution** - Convert @handles to channel IDs
+- ✅ **Live Stream Fetching** - Search and filter live streams by date
+- ✅ **Video Statistics** - Get view counts, likes, and comments
+- ✅ **Pagination Support** - Automatically handle large result sets
+- ✅ **Error Handling** - Categorized errors (quota, auth, network, etc.)
+- ✅ **Rate Limiting** - Prevent exceeding API quotas
+- ✅ **Retry Logic** - Automatic retries with exponential backoff
+- ✅ **Quota Tracking** - Monitor API usage in real-time
+
+### Usage Examples
+
+Run the interactive example:
+```bash
+npm run example:youtube-api
+```
+
+Run the unit tests:
+```bash
+npm run test:youtube-api
+```
+
+### Quick Start
+
+```javascript
+const { YouTubeApiClient } = require('./src/services/youtubeApiClient');
+const client = new YouTubeApiClient();
+
+// Resolve channel handle
+const { channelId, channelTitle } = await client.resolveChannelHandle('@ciidb');
+
+// Get live stream view counts for a date
+const viewData = await client.getLiveStreamViewCounts(channelId, '2024-01-15');
+console.log(`Total Views: ${viewData.totalViews}`);
+console.log(`Stream Count: ${viewData.streamCount}`);
+
+// Check quota usage
+const quota = client.getQuotaUsage();
+console.log(`Used: ${quota.used} / ${quota.limit}`);
+```
+
+### Documentation
+
+For complete API documentation, see [YOUTUBE_API.md](./YOUTUBE_API.md), which includes:
+- API authentication setup
+- Error handling strategies
+- Quota management best practices
+- Complete code examples
+- Troubleshooting guide
+
 ## YouTube API Quota
 
 The YouTube Data API has a quota limit of 10,000 units per day by default. Different operations cost different amounts:
@@ -485,7 +540,14 @@ The YouTube Data API has a quota limit of 10,000 units per day by default. Diffe
 - Search: 100 units
 - Channel details: 1 unit
 
-Monitor your usage in the [Google Cloud Console](https://console.developers.google.com/).
+The API client automatically tracks quota usage and prevents exceeding limits. Monitor your usage:
+
+```bash
+# Check quota usage after running operations
+npm run test:youtube-api
+```
+
+You can also monitor usage in the [Google Cloud Console](https://console.developers.google.com/).
 
 ## Contributing
 
