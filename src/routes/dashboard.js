@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Channel = require('../models/Channel');
 const LiveStreamMetrics = require('../models/LiveStreamMetrics');
+const LiveStreamVideo = require('../models/LiveStreamVideo');
 const { YouTubeApiClient, YouTubeApiError } = require('../services/youtubeApiClient');
 const liveStreamCollector = require('../services/liveStreamCollector');
 const { calculateRSIWithDates, categorizeRSI, getRSILabel } = require('../utils/indicators');
@@ -435,6 +436,127 @@ router.get('/metrics/summary', (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch metrics summary'
+    });
+  }
+});
+
+// GET /api/metrics/:date/videos - Get videos counted for a specific date
+router.get('/metrics/:date/videos', (req, res) => {
+  try {
+    const { date } = req.params;
+    const { channel_ids } = req.query;
+
+    if (!isValidDate(date)) {
+      return res.status(400).json({
+        success: false,
+        error: 'date must be in YYYY-MM-DD format'
+      });
+    }
+
+    let channelIdsArray = null;
+    if (channel_ids) {
+      try {
+        if (Array.isArray(channel_ids)) {
+          channelIdsArray = channel_ids.map(id => parseInt(id, 10));
+        } else if (typeof channel_ids === 'string') {
+          channelIdsArray = channel_ids.split(',').map(id => parseInt(id.trim(), 10));
+        }
+
+        if (channelIdsArray.some(id => isNaN(id) || id <= 0)) {
+          return res.status(400).json({
+            success: false,
+            error: 'channel_ids must be valid positive integers'
+          });
+        }
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid channel_ids format'
+        });
+      }
+    }
+
+    const { getDatabase } = require('../config/database');
+    const db = getDatabase();
+
+    let query = `
+      SELECT lsv.*, c.channel_handle, c.channel_name, c.channel_id as youtube_channel_id
+      FROM live_stream_videos lsv
+      JOIN channels c ON lsv.channel_id = c.id
+      WHERE lsv.date = ?
+    `;
+    const params = [date];
+
+    if (channelIdsArray && channelIdsArray.length > 0) {
+      query += ` AND lsv.channel_id IN (${channelIdsArray.map(() => '?').join(',')})`;
+      params.push(...channelIdsArray);
+    }
+
+    query += ` ORDER BY c.channel_name ASC, lsv.view_count DESC`;
+
+    const stmt = db.prepare(query);
+    const videos = stmt.all(...params);
+
+    const summary = {
+      date: date,
+      total_videos: videos.length,
+      total_views: videos.reduce((sum, v) => sum + (v.view_count || 0), 0),
+      channels: [...new Set(videos.map(v => v.channel_id))].length
+    };
+
+    const byChannel = {};
+    videos.forEach(video => {
+      if (!byChannel[video.channel_id]) {
+        byChannel[video.channel_id] = {
+          channel_id: video.channel_id,
+          channel_handle: video.channel_handle,
+          channel_name: video.channel_name,
+          youtube_channel_id: video.youtube_channel_id,
+          videos: [],
+          total_views: 0,
+          video_count: 0
+        };
+      }
+
+      byChannel[video.channel_id].videos.push({
+        video_id: video.video_id,
+        title: video.title,
+        url: video.url,
+        view_count: video.view_count,
+        published_at: video.published_at,
+        broadcast_type: video.broadcast_type
+      });
+      byChannel[video.channel_id].total_views += video.view_count || 0;
+      byChannel[video.channel_id].video_count++;
+    });
+
+    res.json({
+      success: true,
+      data: {
+        summary: summary,
+        videos: videos.map(v => ({
+          video_id: v.video_id,
+          channel_id: v.channel_id,
+          channel_handle: v.channel_handle,
+          channel_name: v.channel_name,
+          title: v.title,
+          url: v.url,
+          view_count: v.view_count,
+          published_at: v.published_at,
+          broadcast_type: v.broadcast_type
+        })),
+        by_channel: Object.values(byChannel)
+      },
+      filters: {
+        date: date,
+        channel_ids: channelIdsArray
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching videos for date:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch videos for date'
     });
   }
 });

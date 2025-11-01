@@ -180,7 +180,8 @@ class YouTubeApiClient {
     const {
       maxResults = 50,
       eventType = 'completed',
-      order = 'date'
+      order = 'date',
+      videoDuration = 'medium'
     } = options;
 
     try {
@@ -201,6 +202,7 @@ class YouTubeApiClient {
             channelId: channelId,
             eventType: eventType,
             type: ['video'],
+            videoDuration: videoDuration,
             publishedAfter: startDateTime.toISOString(),
             publishedBefore: endDateTime.toISOString(),
             maxResults: maxResults,
