@@ -121,6 +121,30 @@
           <!-- Apply Filters Button -->
           <div class="filter-actions">
             <button id="applyFiltersBtn" class="btn-primary btn-large">Apply Filters</button>
+            <div class="export-dropdown">
+              <button id="exportDataBtn" class="btn-secondary btn-large">
+                <span>📥 Export Data</span>
+                <span class="dropdown-arrow">▼</span>
+              </button>
+              <div id="exportDropdown" class="dropdown-content" style="display: none;">
+                <div class="dropdown-header">Export for AI Analysis</div>
+                <button class="dropdown-item" data-format="csv">
+                  <span class="dropdown-icon">📊</span>
+                  <span>Download as CSV</span>
+                </button>
+                <button class="dropdown-item" data-format="json">
+                  <span class="dropdown-icon">📋</span>
+                  <span>Download as JSON</span>
+                </button>
+                <div class="dropdown-info">
+                  <strong>💡 Tip:</strong> Upload to ChatGPT or Claude for AI-powered analysis of correlations and patterns!
+                </div>
+                <button id="copyPromptBtn" class="dropdown-item copy-prompt-btn">
+                  <span class="dropdown-icon">📝</span>
+                  <span>Copy AI Prompt</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>

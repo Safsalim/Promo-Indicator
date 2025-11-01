@@ -33,12 +33,14 @@ const promoRoutes = require('./routes/promo');
 const youtubeApiRoutes = require('./routes/youtubeApi');
 const dashboardRoutes = require('./routes/dashboard');
 const marketDataRoutes = require('./routes/marketData');
+const exportRoutes = require('./routes/export');
 
 app.use('/api/youtube', youtubeRoutes);
 app.use('/api/promo', promoRoutes);
 app.use('/api/youtube-api', youtubeApiRoutes);
 app.use('/api', dashboardRoutes);
 app.use('/api', marketDataRoutes);
+app.use('/api', exportRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
