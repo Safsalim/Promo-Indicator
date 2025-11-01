@@ -1,0 +1,58 @@
+const { getDatabase } = require('../config/database');
+
+function initializeSchema() {
+  const db = getDatabase();
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS videos (
+      id TEXT PRIMARY KEY,
+      channel_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      published_at DATETIME NOT NULL,
+      thumbnail_url TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS video_stats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      video_id TEXT NOT NULL,
+      view_count INTEGER DEFAULT 0,
+      like_count INTEGER DEFAULT 0,
+      comment_count INTEGER DEFAULT 0,
+      recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (video_id) REFERENCES videos(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS promo_indicators (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      video_id TEXT NOT NULL,
+      indicator_type TEXT NOT NULL,
+      indicator_value REAL,
+      detected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      notes TEXT,
+      FOREIGN KEY (video_id) REFERENCES videos(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS channels (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      subscriber_count INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_video_stats_video_id ON video_stats(video_id);
+    CREATE INDEX IF NOT EXISTS idx_video_stats_recorded_at ON video_stats(recorded_at);
+    CREATE INDEX IF NOT EXISTS idx_promo_indicators_video_id ON promo_indicators(video_id);
+    CREATE INDEX IF NOT EXISTS idx_videos_channel_id ON videos(channel_id);
+  `);
+
+  console.log('Database schema initialized successfully');
+}
+
+module.exports = {
+  initializeSchema
+};

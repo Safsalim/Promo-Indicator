@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Promo-Indicator Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Promo-Indicator Dashboard</h1>
+      <p>YouTube Promotional Analytics & Monitoring</p>
+    </header>
+
+    <main>
+      <section class="search-section">
+        <h2>Search & Monitor Videos</h2>
+        <div class="search-form">
+          <input type="text" id="videoIdInput" placeholder="Enter YouTube Video ID">
+          <button id="searchBtn">Analyze Video</button>
+        </div>
+      </section>
+
+      <section class="video-info" id="videoInfo" style="display: none;">
+        <h2>Video Information</h2>
+        <div id="videoDetails"></div>
+      </section>
+
+      <section class="charts-section">
+        <h2>Analytics Dashboard</h2>
+        <div class="chart-container">
+          <canvas id="viewsChart"></canvas>
+        </div>
+        <div class="chart-container">
+          <canvas id="engagementChart"></canvas>
+        </div>
+      </section>
+
+      <section class="indicators-section">
+        <h2>Promo Indicators</h2>
+        <div id="indicatorsList"></div>
+      </section>
+    </main>
+
+    <footer>
+      <p>&copy; 2024 Promo-Indicator. All rights reserved.</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
