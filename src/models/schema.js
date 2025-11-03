@@ -101,8 +101,23 @@ function initializeSchema() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS filtered_videos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      video_id TEXT NOT NULL,
+      channel_id INTEGER NOT NULL,
+      reason TEXT NOT NULL,
+      title TEXT,
+      privacy_status TEXT,
+      detected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (channel_id) REFERENCES channels(id),
+      UNIQUE(video_id, channel_id, detected_at)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_btc_price_data_date ON btc_price_data(date);
     CREATE INDEX IF NOT EXISTS idx_fear_greed_index_date ON fear_greed_index(date);
+    CREATE INDEX IF NOT EXISTS idx_filtered_videos_channel_id ON filtered_videos(channel_id);
+    CREATE INDEX IF NOT EXISTS idx_filtered_videos_reason ON filtered_videos(reason);
+    CREATE INDEX IF NOT EXISTS idx_filtered_videos_detected_at ON filtered_videos(detected_at);
   `);
 
   console.log('Database schema initialized successfully');

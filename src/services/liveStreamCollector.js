@@ -2,12 +2,14 @@ const { YouTubeApiClient, YouTubeApiError } = require('./youtubeApiClient');
 const Channel = require('../models/Channel');
 const LiveStreamMetrics = require('../models/LiveStreamMetrics');
 const LiveStreamVideo = require('../models/LiveStreamVideo');
+const FilteredVideo = require('../models/FilteredVideo');
 
 class LiveStreamCollector {
   constructor() {
     this.logger = console;
     this.youtubeClient = new YouTubeApiClient();
     this.verbose = false;
+    this.includeMembersOnly = false;
   }
 
   async getChannelIdByHandle(handle) {
@@ -52,15 +54,61 @@ class LiveStreamCollector {
     }
   }
 
-  groupStreamsByDate(streams, statistics) {
+  isPublicLivestream(video) {
+    const privacyStatus = video.status?.privacyStatus;
+    const title = video.snippet?.title?.toLowerCase() || '';
+    const description = video.snippet?.description?.toLowerCase() || '';
+    const hasRestrictions = video.contentDetails?.hasRestrictions;
+
+    if (privacyStatus !== 'public') {
+      return {
+        isPublic: false,
+        reason: privacyStatus === 'unlisted' ? 'unlisted' : privacyStatus === 'private' ? 'private' : 'non_public',
+        privacyStatus: privacyStatus
+      };
+    }
+
+    if (hasRestrictions === true) {
+      return {
+        isPublic: false,
+        reason: 'has_restrictions',
+        privacyStatus: privacyStatus
+      };
+    }
+
+    const memberKeywords = ['member', 'members only', 'membership', 'members-only'];
+    const hasMemberIndicator = memberKeywords.some(keyword => 
+      title.includes(keyword) || description.includes(keyword)
+    );
+
+    if (hasMemberIndicator) {
+      return {
+        isPublic: false,
+        reason: 'members_only',
+        privacyStatus: privacyStatus
+      };
+    }
+
+    return {
+      isPublic: true,
+      reason: null,
+      privacyStatus: privacyStatus
+    };
+  }
+
+  groupStreamsByDate(streams, statistics, channelDbId) {
     const streamsByDate = {};
     const seenVideoIds = new Set();
     const duplicatesDetected = [];
     const skippedVideos = [];
+    const filteredVideos = [];
 
     if (this.verbose) {
       this.logger.log('\n📊 Filtering and grouping videos...');
       this.logger.log('   Using MAX (peak) aggregation for view counts (not SUM)');
+      if (!this.includeMembersOnly) {
+        this.logger.log('   Filtering out members-only and non-public livestreams');
+      }
     }
 
     streams.forEach(stream => {
@@ -90,6 +138,23 @@ class LiveStreamCollector {
         }
         skippedVideos.push({ videoId, reason: 'not a livestream', title: stats.snippet.title });
         return;
+      }
+
+      if (!this.includeMembersOnly) {
+        const publicCheck = this.isPublicLivestream(stats);
+        if (!publicCheck.isPublic) {
+          if (this.verbose) {
+            this.logger.log(`🚫 Skipping ${publicCheck.reason} livestream: ${videoId} - "${stats.snippet.title}"`);
+          }
+          filteredVideos.push({
+            videoId,
+            reason: publicCheck.reason,
+            title: stats.snippet.title,
+            privacyStatus: publicCheck.privacyStatus,
+            channelId: channelDbId
+          });
+          return;
+        }
       }
 
       const globalVideoKey = `${videoId}`;
@@ -163,7 +228,26 @@ class LiveStreamCollector {
       });
     }
 
-    return streamsByDate;
+    if (filteredVideos.length > 0) {
+      const filterSummary = {};
+      filteredVideos.forEach(filtered => {
+        filterSummary[filtered.reason] = (filterSummary[filtered.reason] || 0) + 1;
+      });
+
+      this.logger.log(`\n🚫 FILTERED VIDEOS: ${filteredVideos.length} video(s) excluded for access restrictions:`);
+      Object.entries(filterSummary).forEach(([reason, count]) => {
+        const reasonLabel = reason.replace(/_/g, ' ');
+        this.logger.log(`   ✗ ${reasonLabel}: ${count} stream${count > 1 ? 's' : ''}`);
+      });
+
+      if (this.verbose) {
+        filteredVideos.forEach(filtered => {
+          this.logger.log(`   - ${filtered.videoId}: "${filtered.title}" (${filtered.reason})`);
+        });
+      }
+    }
+
+    return { streamsByDate, filteredVideos };
   }
 
   async collectMetricsForChannel(channelDbId, channelId, startDate, endDate, dryRun = false) {
@@ -183,12 +267,28 @@ class LiveStreamCollector {
       const videoIds = liveStreams.map(stream => stream.id.videoId);
       const statistics = await this.getVideoStatistics(videoIds);
 
-      const streamsByDate = this.groupStreamsByDate(liveStreams, statistics);
+      const { streamsByDate, filteredVideos } = this.groupStreamsByDate(liveStreams, statistics, channelDbId);
       const dates = Object.keys(streamsByDate).sort();
+
+      if (!dryRun && filteredVideos.length > 0) {
+        for (const filtered of filteredVideos) {
+          try {
+            FilteredVideo.createOrUpdate({
+              video_id: filtered.videoId,
+              channel_id: filtered.channelId,
+              reason: filtered.reason,
+              title: filtered.title,
+              privacy_status: filtered.privacyStatus
+            });
+          } catch (error) {
+            this.logger.error(`Failed to store filtered video ${filtered.videoId}:`, error.message);
+          }
+        }
+      }
 
       if (dates.length === 0) {
         this.logger.log(`No valid live stream data to process.`);
-        return { success: true, message: 'No valid data', processed: 0 };
+        return { success: true, message: 'No valid data', processed: 0, filtered: filteredVideos.length };
       }
 
       this.logger.log(`Processing ${dates.length} date(s) with live stream data.`);
@@ -304,10 +404,12 @@ class LiveStreamCollector {
       startDate = null,
       endDate = null,
       dryRun = false,
-      verbose = false
+      verbose = false,
+      includeMembersOnly = false
     } = options;
 
     this.verbose = verbose;
+    this.includeMembersOnly = includeMembersOnly;
     this.youtubeClient.setVerbose(verbose);
 
     const start = startDate || this.getPreviousDay();
@@ -322,6 +424,11 @@ class LiveStreamCollector {
     }
     if (verbose) {
       this.logger.log('*** VERBOSE MODE - Detailed logging enabled ***');
+    }
+    if (includeMembersOnly) {
+      this.logger.log('*** INCLUDING MEMBERS-ONLY CONTENT ***');
+    } else {
+      this.logger.log('*** FILTERING OUT MEMBERS-ONLY AND NON-PUBLIC CONTENT ***');
     }
     this.logger.log('='.repeat(60));
 
@@ -415,6 +522,10 @@ class LiveStreamCollector {
 
   setVerbose(verbose) {
     this.verbose = verbose;
+  }
+
+  setIncludeMembersOnly(includeMembersOnly) {
+    this.includeMembersOnly = includeMembersOnly;
   }
 }
 
