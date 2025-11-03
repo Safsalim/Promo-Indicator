@@ -1166,6 +1166,88 @@ function initializeRecalcDates() {
   document.getElementById('recalcEndDate').value = endDate;
 }
 
+function initializeMarketCollectionDates() {
+  const endDate = getDateDaysAgo(1);
+  const startDate = getDateDaysAgo(90);
+  
+  document.getElementById('marketCollectStartDate').value = startDate;
+  document.getElementById('marketCollectEndDate').value = endDate;
+}
+
+async function collectMarketData() {
+  const startDateInput = document.getElementById('marketCollectStartDate');
+  const endDateInput = document.getElementById('marketCollectEndDate');
+  const btn = document.getElementById('collectMarketDataBtn');
+  const btnText = btn.querySelector('.btn-text');
+  const btnLoading = btn.querySelector('.btn-loading');
+  
+  const startDate = startDateInput.value;
+  const endDate = endDateInput.value;
+  
+  if (!startDate || !endDate) {
+    showFeedback('marketCollectionFeedback', 'Please select both start and end dates', 'error');
+    return;
+  }
+  
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  if (start > end) {
+    showFeedback('marketCollectionFeedback', 'Start date must be before or equal to end date', 'error');
+    return;
+  }
+  
+  const diffTime = Math.abs(end - start);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays > 365) {
+    showFeedback('marketCollectionFeedback', 'Date range cannot exceed 365 days', 'error');
+    return;
+  }
+  
+  btn.disabled = true;
+  btnText.style.display = 'none';
+  btnLoading.style.display = 'inline';
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/collect-market-data`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        start_date: startDate,
+        end_date: endDate
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to collect market data');
+    }
+    
+    const btcCount = result.results?.btc?.totalCount || 0;
+    const fngCount = result.results?.fearGreed?.totalCount || 0;
+    const successMsg = `Successfully collected market data! BTC: ${btcCount} records, Fear & Greed: ${fngCount} records`;
+    showFeedback('marketCollectionFeedback', successMsg, 'success');
+    
+    console.log('Market data collection results:', result);
+    
+    setTimeout(() => {
+      fetchMetrics();
+    }, 1500);
+    
+  } catch (error) {
+    console.error('Error collecting market data:', error);
+    showFeedback('marketCollectionFeedback', error.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btnText.style.display = 'inline';
+    btnLoading.style.display = 'none';
+  }
+}
+
 function setupEventListeners() {
   document.getElementById('addChannelBtn').addEventListener('click', addChannel);
   
@@ -1180,6 +1262,8 @@ function setupEventListeners() {
   document.getElementById('collectDataBtn').addEventListener('click', collectHistoricalData);
   
   document.getElementById('recalculateDataBtn').addEventListener('click', recalculateData);
+  
+  document.getElementById('collectMarketDataBtn').addEventListener('click', collectMarketData);
   
   document.getElementById('rsiPeriod').addEventListener('change', (e) => {
     currentRsiPeriod = parseInt(e.target.value, 10);
@@ -1388,6 +1472,7 @@ async function init() {
   initializeDateRange(90);
   initializeCollectionDates();
   initializeRecalcDates();
+  initializeMarketCollectionDates();
   await fetchChannels();
   
   if (allChannels.length > 0) {

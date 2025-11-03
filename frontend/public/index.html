@@ -82,6 +82,32 @@
         </div>
       </section>
 
+      <!-- Collect Market Data Section -->
+      <section class="collection-section market-collection-section">
+        <h2>Collect Market Data (BTC & Fear/Greed)</h2>
+        <div class="collection-container">
+          <p class="collection-desc">Collect Bitcoin price and Fear & Greed Index data for the specified date range</p>
+          <div class="collection-form">
+            <div class="date-input-group">
+              <label for="marketCollectStartDate">Start Date</label>
+              <input type="date" id="marketCollectStartDate" aria-label="Market data collection start date">
+            </div>
+            <div class="date-input-group">
+              <label for="marketCollectEndDate">End Date</label>
+              <input type="date" id="marketCollectEndDate" aria-label="Market data collection end date">
+            </div>
+            <button id="collectMarketDataBtn" class="btn-primary">
+              <span class="btn-text">Collect Market Data</span>
+              <span class="btn-loading" style="display: none;">Collecting...</span>
+            </button>
+          </div>
+          <div id="marketCollectionFeedback" class="feedback-message" style="display: none;"></div>
+          <div class="market-info">
+            <strong>ℹ️ Note:</strong> This collects BTC price data from CoinGecko and Fear & Greed Index from Alternative.me for correlation analysis with YouTube sentiment data.
+          </div>
+        </div>
+      </section>
+
       <!-- Filters Section -->
       <section class="filters-section">
         <h2>Filters</h2>
