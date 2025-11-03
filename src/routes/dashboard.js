@@ -677,7 +677,7 @@ function isValidDate(dateString) {
 // POST /api/collect-metrics - Trigger metrics collection
 router.post('/collect-metrics', async (req, res) => {
   try {
-    const { start_date, end_date, channel_ids, verbose } = req.body;
+    const { start_date, end_date, channel_ids, verbose, include_members_only } = req.body;
 
     // Input validation
     if (start_date && !isValidDate(start_date)) {
@@ -734,7 +734,8 @@ router.post('/collect-metrics', async (req, res) => {
       endDate: end_date || null,
       channelIds: channelIdsArray,
       dryRun: false,
-      verbose: verbose || false
+      verbose: verbose || false,
+      includeMembersOnly: include_members_only || false
     };
 
     const results = await liveStreamCollector.collectMetrics(collectionOptions);

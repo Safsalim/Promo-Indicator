@@ -306,7 +306,7 @@ class YouTubeApiClient {
         
         const response = await this.retryableCall(async () => {
           return await youtube.videos.list({
-            part: ['statistics', 'snippet', 'liveStreamingDetails'],
+            part: ['statistics', 'snippet', 'liveStreamingDetails', 'status', 'contentDetails'],
             id: chunk
           });
         }, 1);
@@ -322,12 +322,17 @@ class YouTubeApiClient {
               console.log(`      Title: "${video.snippet.title}"`);
               console.log(`      Published: ${video.snippet.publishedAt}`);
               console.log(`      Live Broadcast Content: ${video.snippet.liveBroadcastContent}`);
+              console.log(`      Privacy Status: ${video.status?.privacyStatus || 'N/A'}`);
               console.log(`      View Count: ${video.statistics.viewCount || 0}`);
               console.log(`      Has liveStreamingDetails: ${!!video.liveStreamingDetails}`);
               if (video.liveStreamingDetails) {
                 console.log(`      Scheduled Start: ${video.liveStreamingDetails.scheduledStartTime || 'N/A'}`);
                 console.log(`      Actual Start: ${video.liveStreamingDetails.actualStartTime || 'N/A'}`);
                 console.log(`      Actual End: ${video.liveStreamingDetails.actualEndTime || 'N/A'}`);
+              }
+              if (video.contentDetails) {
+                console.log(`      Has Restrictions: ${video.contentDetails.hasRestrictions || false}`);
+                console.log(`      Content Rating: ${JSON.stringify(video.contentDetails.contentRating || {})}`);
               }
             });
           }

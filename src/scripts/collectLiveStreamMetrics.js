@@ -12,6 +12,7 @@ function parseArguments() {
     channelIds: [],
     dryRun: false,
     verbose: false,
+    includeMembersOnly: false,
     help: false
   };
 
@@ -50,6 +51,10 @@ function parseArguments() {
         options.verbose = true;
         break;
       
+      case '--include-members-only':
+        options.includeMembersOnly = true;
+        break;
+      
       default:
         console.error(`Unknown option: ${arg}`);
         options.help = true;
@@ -66,12 +71,13 @@ Live Stream Metrics Collection Tool
 Usage: node collectLiveStreamMetrics.js [options]
 
 Options:
-  -h, --help              Show this help message
-  -s, --start-date DATE   Start date (YYYY-MM-DD, default: yesterday)
-  -e, --end-date DATE     End date (YYYY-MM-DD, default: same as start date)
-  -c, --channels IDS      Comma-separated channel IDs to process (default: all active)
-  -d, --dry-run           Run without saving data (preview mode)
-  -v, --verbose           Enable verbose logging with detailed video information
+  -h, --help                Show this help message
+  -s, --start-date DATE     Start date (YYYY-MM-DD, default: yesterday)
+  -e, --end-date DATE       End date (YYYY-MM-DD, default: same as start date)
+  -c, --channels IDS        Comma-separated channel IDs to process (default: all active)
+  -d, --dry-run             Run without saving data (preview mode)
+  -v, --verbose             Enable verbose logging with detailed video information
+  --include-members-only    Include members-only livestreams (default: exclude)
 
 Examples:
   # Collect metrics for yesterday (default)
@@ -85,6 +91,9 @@ Examples:
 
   # Collect for specific channels only
   node collectLiveStreamMetrics.js --channels 1,2,3
+
+  # Include members-only livestreams
+  node collectLiveStreamMetrics.js --include-members-only
 
   # Dry run to preview without saving
   node collectLiveStreamMetrics.js --dry-run
@@ -142,7 +151,8 @@ async function main() {
       endDate: options.endDate,
       channelIds: options.channelIds.length > 0 ? options.channelIds : null,
       dryRun: options.dryRun,
-      verbose: options.verbose
+      verbose: options.verbose,
+      includeMembersOnly: options.includeMembersOnly
     };
 
     const results = await liveStreamCollector.collectMetrics(collectionOptions);
