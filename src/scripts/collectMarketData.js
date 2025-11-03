@@ -49,12 +49,17 @@ Examples:
   # Collect last 90 days (using default dates)
   npm run collect-market-data
 
+  # Collect historical data (back to 2010)
+  npm run collect-market-data -- -s 2010-07-17 -e 2024-11-01
+
   # Collect specific date range
   npm run collect-market-data -- -s 2024-08-01 -e 2024-11-01
 
 Notes:
-  - BTC price data is fetched from CoinGecko API (free, no API key required)
-  - Fear & Greed index is fetched from Alternative.me API (free)
+  - BTC price data is fetched from CryptoCompare API (free, no API key required)
+  - CryptoCompare API supports historical data from 2010-07-17 onwards
+  - Large date ranges (>2000 days) are automatically split into chunks
+  - Fear & Greed index is fetched from Alternative.me API (free, limited to ~3000 days)
   - Data is stored in the local SQLite database
   - Existing data for the same dates will be updated
   `);
