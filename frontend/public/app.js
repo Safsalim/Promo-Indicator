@@ -293,50 +293,91 @@ function showNoData() {
 }
 
 function updateChart(metrics) {
-  const groupedByChannel = {};
-  
-  metrics.forEach(metric => {
-    const channelId = metric.channel_id;
-    if (!groupedByChannel[channelId]) {
-      groupedByChannel[channelId] = {
-        label: metric.channel_name || metric.channel_handle,
-        data: []
-      };
-    }
-    groupedByChannel[channelId].data.push({
-      date: metric.date,
-      views: metric.total_live_stream_views
-    });
-  });
-  
-  const allDates = [...new Set(metrics.map(m => m.date))].sort();
-  
-  const datasets = Object.keys(groupedByChannel).map((channelId, index) => {
-    const channelData = groupedByChannel[channelId];
-    const color = CHART_COLORS[index % CHART_COLORS.length];
-    
-    const dateMap = {};
-    channelData.data.forEach(item => {
-      dateMap[item.date] = item.views;
-    });
-    
-    const chartData = allDates.map(date => dateMap[date] || 0);
-    
-    return {
-      label: channelData.label,
-      data: chartData,
-      borderColor: color,
-      backgroundColor: color + '33',
-      borderWidth: 2,
-      fill: false,
-      tension: 0.4,
-      pointRadius: 4,
-      pointHoverRadius: 6,
-      pointBackgroundColor: color,
-      pointBorderColor: '#fff',
-      pointBorderWidth: 2
-    };
-  });
+   const groupedByChannel = {};
+   const ma7Grouped = {};
+
+   metrics.forEach(metric => {
+     const channelId = metric.channel_id;
+     if (!groupedByChannel[channelId]) {
+       groupedByChannel[channelId] = {
+         label: metric.channel_name || metric.channel_handle,
+         data: []
+       };
+       ma7Grouped[channelId] = {
+         label: (metric.channel_name || metric.channel_handle) + ' - 7d MA',
+         data: []
+       };
+     }
+     groupedByChannel[channelId].data.push({
+       date: metric.date,
+       views: metric.total_live_stream_views
+     });
+     ma7Grouped[channelId].data.push({
+       date: metric.date,
+       views_ma7: metric.views_ma7
+     });
+   });
+
+   const allDates = [...new Set(metrics.map(m => m.date))].sort();
+
+   const datasets = Object.keys(groupedByChannel).map((channelId, index) => {
+     const channelData = groupedByChannel[channelId];
+     const color = CHART_COLORS[index % CHART_COLORS.length];
+
+     const dateMap = {};
+     channelData.data.forEach(item => {
+       dateMap[item.date] = item.views;
+     });
+
+     const chartData = allDates.map(date => dateMap[date] || 0);
+
+     return {
+       label: channelData.label,
+       data: chartData,
+       borderColor: color,
+       backgroundColor: color + '33',
+       borderWidth: 2,
+       fill: false,
+       tension: 0.4,
+       pointRadius: 4,
+       pointHoverRadius: 6,
+       pointBackgroundColor: color,
+       pointBorderColor: '#fff',
+       pointBorderWidth: 2
+     };
+   });
+
+   const ma7Toggle = document.getElementById('ma7Toggle');
+   if (ma7Toggle && ma7Toggle.checked) {
+     Object.keys(ma7Grouped).forEach((channelId, index) => {
+       const ma7Data = ma7Grouped[channelId];
+       const color = CHART_COLORS[index % CHART_COLORS.length];
+
+       const dateMap = {};
+       ma7Data.data.forEach(item => {
+         dateMap[item.date] = item.views_ma7;
+       });
+
+       const chartData = allDates.map(date => dateMap[date] || null);
+
+       datasets.push({
+         label: ma7Data.label,
+         data: chartData,
+         borderColor: color,
+         backgroundColor: 'transparent',
+         borderWidth: 2,
+         borderDash: [5, 5],
+         fill: false,
+         tension: 0.4,
+         pointRadius: 0,
+         pointHoverRadius: 4,
+         pointBackgroundColor: color,
+         pointBorderColor: '#fff',
+         pointBorderWidth: 2,
+         spanGaps: true
+       });
+     });
+   }
   
   const labels = allDates.map(date => formatDate(date));
   
@@ -1279,7 +1320,13 @@ function setupEventListeners() {
       updateRsiChart(currentRsiData, channelIds);
     }
   });
-  
+
+  document.getElementById('ma7Toggle').addEventListener('change', () => {
+    if (currentMetrics.length > 0) {
+      updateChart(currentMetrics);
+    }
+  });
+
   document.getElementById('stackedViewBtn').addEventListener('click', () => {
     toggleView('stacked');
   });

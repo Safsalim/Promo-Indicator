@@ -90,9 +90,54 @@ function getRSILabel(rsi) {
   return 'Neutral';
 }
 
+function calculate7DayMovingAverage(valuesArray) {
+  if (!valuesArray || !Array.isArray(valuesArray) || valuesArray.length === 0) {
+    return [];
+  }
+
+  const ma = [];
+  for (let i = 0; i < valuesArray.length; i++) {
+    if (i < 6) {
+      ma.push(null);
+    } else {
+      const sum = valuesArray.slice(i - 6, i + 1).reduce((a, b) => {
+        return (a || 0) + (b || 0);
+      }, 0);
+      const average = sum / 7;
+      ma.push(Math.round(average * 100) / 100);
+    }
+  }
+  return ma;
+}
+
+function calculateMA7WithDates(metricsData) {
+  if (!metricsData || !Array.isArray(metricsData) || metricsData.length === 0) {
+    return [];
+  }
+
+  const sortedData = [...metricsData].sort((a, b) => {
+    return new Date(a.date) - new Date(b.date);
+  });
+
+  const values = sortedData.map(m => m.total_live_stream_views || 0);
+  const maValues = calculate7DayMovingAverage(values);
+
+  const result = [];
+  for (let i = 0; i < sortedData.length; i++) {
+    result.push({
+      date: sortedData[i].date,
+      views_ma7: maValues[i]
+    });
+  }
+
+  return result;
+}
+
 module.exports = {
   calculateRSI,
   calculateRSIWithDates,
   categorizeRSI,
-  getRSILabel
+  getRSILabel,
+  calculate7DayMovingAverage,
+  calculateMA7WithDates
 };

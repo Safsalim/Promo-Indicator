@@ -5,7 +5,7 @@ const LiveStreamMetrics = require('../models/LiveStreamMetrics');
 const LiveStreamVideo = require('../models/LiveStreamVideo');
 const { YouTubeApiClient, YouTubeApiError } = require('../services/youtubeApiClient');
 const liveStreamCollector = require('../services/liveStreamCollector');
-const { calculateRSIWithDates, categorizeRSI, getRSILabel } = require('../utils/indicators');
+const { calculateRSIWithDates, categorizeRSI, getRSILabel, calculateMA7WithDates } = require('../utils/indicators');
 
 // GET /api/channels - List all tracked channels with their metadata
 router.get('/channels', (req, res) => {
@@ -219,23 +219,40 @@ router.get('/metrics', (req, res) => {
     const stmt = db.prepare(query);
     const metrics = stmt.all(...params);
 
-    // Calculate RSI for each channel
+    // Calculate RSI and MA7 for each channel
     const rsiByChannel = {};
+    const ma7ByChannel = {};
     if (channelIdsArray && channelIdsArray.length > 0) {
       channelIdsArray.forEach(channelId => {
         const channelMetrics = metrics.filter(m => m.channel_id === channelId);
         if (channelMetrics.length > 0) {
           const rsiData = calculateRSIWithDates(channelMetrics, rsiPeriod);
           rsiByChannel[channelId] = rsiData;
+
+          const ma7Data = calculateMA7WithDates(channelMetrics);
+          ma7ByChannel[channelId] = ma7Data;
         }
       });
     }
 
+    // Merge MA7 data into metrics
+    const enrichedMetrics = metrics.map(metric => {
+      const ma7Data = ma7ByChannel[metric.channel_id];
+      if (ma7Data) {
+        const ma7Entry = ma7Data.find(entry => entry.date === metric.date);
+        if (ma7Entry) {
+          metric.views_ma7 = ma7Entry.views_ma7;
+        }
+      }
+      return metric;
+    });
+
     res.json({
       success: true,
-      data: metrics,
-      count: metrics.length,
+      data: enrichedMetrics,
+      count: enrichedMetrics.length,
       rsi: rsiByChannel,
+      ma7: ma7ByChannel,
       filters: {
         channel_ids: channelIdsArray,
         start_date: start_date || null,

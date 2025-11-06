@@ -254,8 +254,19 @@
 
       <!-- Main Chart -->
       <section class="chart-section" id="viewsChartSection">
-        <h2>Live Stream Peak View Trends</h2>
-        <p class="section-description">Peak view count from live streams per day. Days with multiple streams show the highest-viewed stream.</p>
+        <div class="chart-header-controls">
+          <div>
+            <h2>Live Stream Peak View Trends</h2>
+            <p class="section-description">Peak view count from live streams per day. Days with multiple streams show the highest-viewed stream.</p>
+          </div>
+          <div class="ma7-toggle">
+            <label class="toggle-switch">
+              <input type="checkbox" id="ma7Toggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <label for="ma7Toggle">Show 7-day Moving Average</label>
+          </div>
+        </div>
         <div class="sentiment-indicators">
           <div class="sentiment-zone euphoria">
             <span class="zone-label">Euphoria Zone</span>
