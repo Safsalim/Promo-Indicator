@@ -6,7 +6,7 @@ const LiveStreamVideo = require('../models/LiveStreamVideo');
 const { YouTubeApiClient, YouTubeApiError } = require('../services/youtubeApiClient');
 const liveStreamCollector = require('../services/liveStreamCollector');
 const { calculateRSIWithDates, categorizeRSI, getRSILabel } = require('../utils/indicators');
-const { calculateMA7AndVSI, getVSIColor, checkVSISignal } = require('../utils/vsi');
+const { calculateMA7AndVSI } = require('../utils/vsi');
 
 // GET /api/channels - List all tracked channels with their metadata
 router.get('/channels', (req, res) => {

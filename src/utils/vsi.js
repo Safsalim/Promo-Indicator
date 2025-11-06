@@ -32,7 +32,7 @@ function calculateMovingAverage7Days(metrics) {
  * @returns {Array} - Array with vsi and vsi_classification added to each metric
  */
 function calculateVSI(metrics) {
-  const metricsWithMA7 = metrics.filter(m => m.views_ma7 !== null && m.views_ma7 > 0);
+  const metricsWithMA7 = metrics.filter(m => m.views_ma7 !== null && !Number.isNaN(m.views_ma7));
   
   if (metricsWithMA7.length === 0) {
     return metrics.map(m => ({
@@ -44,9 +44,10 @@ function calculateVSI(metrics) {
   
   // Extract all MA7 values for percentile calculation
   const ma7Values = metricsWithMA7.map(m => m.views_ma7);
+  const totalValues = ma7Values.length;
   
   return metrics.map(metric => {
-    if (metric.views_ma7 === null || metric.views_ma7 === 0) {
+    if (metric.views_ma7 === null || Number.isNaN(metric.views_ma7)) {
       return {
         ...metric,
         vsi: null,
@@ -58,21 +59,23 @@ function calculateVSI(metrics) {
     const countLessOrEqual = ma7Values.filter(v => v <= metric.views_ma7).length;
     
     // Calculate percentile (0-100)
-    const vsi = (countLessOrEqual / ma7Values.length) * 100;
-    const roundedVSI = Math.round(vsi);
+    const vsi = totalValues === 0 ? null : (countLessOrEqual / totalValues) * 100;
+    const roundedVSI = vsi === null ? null : Math.round(vsi);
     
     // Classify the VSI
-    let classification;
-    if (roundedVSI <= 10) {
-      classification = 'Extreme Disinterest';
-    } else if (roundedVSI <= 30) {
-      classification = 'Very Low Interest';
-    } else if (roundedVSI <= 70) {
-      classification = 'Normal Range';
-    } else if (roundedVSI <= 90) {
-      classification = 'High Interest';
-    } else {
-      classification = 'Extreme Hype';
+    let classification = null;
+    if (roundedVSI !== null) {
+      if (roundedVSI <= 10) {
+        classification = 'Extreme Disinterest';
+      } else if (roundedVSI <= 30) {
+        classification = 'Very Low Interest';
+      } else if (roundedVSI <= 70) {
+        classification = 'Normal Range';
+      } else if (roundedVSI <= 90) {
+        classification = 'High Interest';
+      } else {
+        classification = 'Extreme Hype';
+      }
     }
     
     return {
