@@ -211,6 +211,14 @@
               <div class="stat-subtext" id="trendPercent">-</div>
             </div>
           </div>
+          <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-content">
+              <div class="stat-label">Current VSI</div>
+              <div class="stat-value" id="currentVSI">-</div>
+              <div class="stat-subtext" id="currentVSIClassification">-</div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -328,6 +336,48 @@
         </div>
         <div id="rsiChartContainer" class="chart-container rsi-chart-container">
           <canvas id="rsiChart"></canvas>
+        </div>
+      </section>
+
+      <!-- VSI Chart Section -->
+      <section class="chart-section vsi-section">
+        <div class="vsi-header">
+          <h2>VSI - Views Sentiment Indicator</h2>
+          <div class="vsi-toggle">
+            <label class="toggle-switch">
+              <input type="checkbox" id="vsiToggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <label for="vsiToggle">Show VSI</label>
+          </div>
+        </div>
+        <div class="vsi-description">
+          <p>VSI measures percentile ranking of 7-day moving average views (0-100 scale):</p>
+          <div class="vsi-legend">
+            <div class="vsi-legend-item extreme-disinterest">
+              <span class="vsi-indicator"></span>
+              <span><strong>0-10:</strong> Extreme Disinterest (Buy Signal)</span>
+            </div>
+            <div class="vsi-legend-item low-interest">
+              <span class="vsi-indicator"></span>
+              <span><strong>10-30:</strong> Low Interest (Buy Signal)</span>
+            </div>
+            <div class="vsi-legend-item normal">
+              <span class="vsi-indicator"></span>
+              <span><strong>30-70:</strong> Normal (Neutral)</span>
+            </div>
+            <div class="vsi-legend-item high-interest">
+              <span class="vsi-indicator"></span>
+              <span><strong>70-90:</strong> High Interest (Sell Signal)</span>
+            </div>
+            <div class="vsi-legend-item extreme-hype">
+              <span class="vsi-indicator"></span>
+              <span><strong>90-100:</strong> Extreme Hype (Sell Signal)</span>
+            </div>
+          </div>
+        </div>
+        <div id="vsiChartContainer" class="chart-container vsi-chart-container">
+          <canvas id="vsiChart"></canvas>
         </div>
       </section>
 

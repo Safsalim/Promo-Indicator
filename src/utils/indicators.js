@@ -133,11 +133,89 @@ function calculateMA7WithDates(metricsData) {
   return result;
 }
 
+function calculateVSI(ma7Values) {
+  if (!ma7Values || !Array.isArray(ma7Values) || ma7Values.length === 0) {
+    return [];
+  }
+
+  // Filter out null values for percentile calculation
+  const validValues = ma7Values.filter(v => v !== null);
+  
+  if (validValues.length === 0) {
+    return ma7Values.map(() => null);
+  }
+
+  // Calculate VSI for each day
+  return ma7Values.map(todayMA7 => {
+    if (todayMA7 === null) {
+      return null;
+    }
+    
+    // Count how many values are <= today's value
+    const countLessOrEqual = validValues.filter(v => v <= todayMA7).length;
+    
+    // Calculate percentile: (count / total) * 100
+    const vsi = (countLessOrEqual / validValues.length) * 100;
+    
+    return Math.round(vsi);
+  });
+}
+
+function calculateVSIWithDates(metricsData) {
+  if (!metricsData || !Array.isArray(metricsData) || metricsData.length === 0) {
+    return [];
+  }
+
+  const sortedData = [...metricsData].sort((a, b) => {
+    return new Date(a.date) - new Date(b.date);
+  });
+
+  // First calculate MA7 values
+  const ma7Data = calculateMA7WithDates(sortedData);
+  const ma7Values = ma7Data.map(d => d.views_ma7);
+  
+  // Then calculate VSI based on MA7 values
+  const vsiValues = calculateVSI(ma7Values);
+
+  const result = [];
+  for (let i = 0; i < sortedData.length; i++) {
+    result.push({
+      date: sortedData[i].date,
+      views_ma7: ma7Values[i],
+      vsi: vsiValues[i],
+      vsi_classification: getVSIClassification(vsiValues[i])
+    });
+  }
+
+  return result;
+}
+
+function getVSIClassification(vsi) {
+  if (vsi === null || vsi === undefined) {
+    return 'No Data';
+  }
+  
+  if (vsi <= 10) {
+    return 'Extreme Disinterest';
+  } else if (vsi <= 30) {
+    return 'Low Interest';
+  } else if (vsi <= 70) {
+    return 'Normal';
+  } else if (vsi <= 90) {
+    return 'High Interest';
+  } else {
+    return 'Extreme Hype';
+  }
+}
+
 module.exports = {
   calculateRSI,
   calculateRSIWithDates,
   categorizeRSI,
   getRSILabel,
   calculate7DayMovingAverage,
-  calculateMA7WithDates
+  calculateMA7WithDates,
+  calculateVSI,
+  calculateVSIWithDates,
+  getVSIClassification
 };

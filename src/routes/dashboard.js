@@ -5,7 +5,7 @@ const LiveStreamMetrics = require('../models/LiveStreamMetrics');
 const LiveStreamVideo = require('../models/LiveStreamVideo');
 const { YouTubeApiClient, YouTubeApiError } = require('../services/youtubeApiClient');
 const liveStreamCollector = require('../services/liveStreamCollector');
-const { calculateRSIWithDates, categorizeRSI, getRSILabel, calculateMA7WithDates } = require('../utils/indicators');
+const { calculateRSIWithDates, categorizeRSI, getRSILabel, calculateMA7WithDates, calculateVSIWithDates } = require('../utils/indicators');
 
 // GET /api/channels - List all tracked channels with their metadata
 router.get('/channels', (req, res) => {
@@ -219,9 +219,10 @@ router.get('/metrics', (req, res) => {
     const stmt = db.prepare(query);
     const metrics = stmt.all(...params);
 
-    // Calculate RSI and MA7 for each channel
+    // Calculate RSI, MA7, and VSI for each channel
     const rsiByChannel = {};
     const ma7ByChannel = {};
+    const vsiByChannel = {};
     if (channelIdsArray && channelIdsArray.length > 0) {
       channelIdsArray.forEach(channelId => {
         const channelMetrics = metrics.filter(m => m.channel_id === channelId);
@@ -231,11 +232,14 @@ router.get('/metrics', (req, res) => {
 
           const ma7Data = calculateMA7WithDates(channelMetrics);
           ma7ByChannel[channelId] = ma7Data;
+
+          const vsiData = calculateVSIWithDates(channelMetrics);
+          vsiByChannel[channelId] = vsiData;
         }
       });
     }
 
-    // Merge MA7 data into metrics
+    // Merge MA7 and VSI data into metrics
     const enrichedMetrics = metrics.map(metric => {
       const ma7Data = ma7ByChannel[metric.channel_id];
       if (ma7Data) {
@@ -244,6 +248,16 @@ router.get('/metrics', (req, res) => {
           metric.views_ma7 = ma7Entry.views_ma7;
         }
       }
+
+      const vsiData = vsiByChannel[metric.channel_id];
+      if (vsiData) {
+        const vsiEntry = vsiData.find(entry => entry.date === metric.date);
+        if (vsiEntry) {
+          metric.vsi = vsiEntry.vsi;
+          metric.vsi_classification = vsiEntry.vsi_classification;
+        }
+      }
+
       return metric;
     });
 
@@ -253,6 +267,7 @@ router.get('/metrics', (req, res) => {
       count: enrichedMetrics.length,
       rsi: rsiByChannel,
       ma7: ma7ByChannel,
+      vsi: vsiByChannel,
       filters: {
         channel_ids: channelIdsArray,
         start_date: start_date || null,
@@ -398,6 +413,7 @@ router.get('/metrics/summary', (req, res) => {
 
     // Get per-channel breakdown if filtering by specific channels
     let channelBreakdown = null;
+    let currentVSI = null;
     if (channelIdsArray && channelIdsArray.length > 0) {
       const breakdownQuery = `
         SELECT 
@@ -423,6 +439,40 @@ router.get('/metrics/summary', (req, res) => {
 
       const breakdownStmt = db.prepare(breakdownQuery);
       channelBreakdown = breakdownStmt.all(...breakdownParams);
+
+      // Calculate current VSI for the latest date
+      const latestDateQuery = `
+        SELECT lsm.*, c.channel_handle, c.channel_name
+        FROM live_stream_metrics lsm
+        JOIN channels c ON lsm.channel_id = c.id
+        WHERE lsm.channel_id IN (${channelIdsArray.map(() => '?').join(',')})
+        ${start_date ? 'AND lsm.date >= ?' : ''}
+        ${end_date ? 'AND lsm.date <= ?' : ''}
+        ORDER BY lsm.date DESC
+        LIMIT 1000
+      `;
+
+      const latestDateParams = [...channelIdsArray];
+      if (start_date) latestDateParams.push(start_date);
+      if (end_date) latestDateParams.push(end_date);
+
+      const latestDateStmt = db.prepare(latestDateQuery);
+      const allMetrics = latestDateStmt.all(...latestDateParams);
+
+      if (allMetrics.length > 0) {
+        const vsiData = calculateVSIWithDates(allMetrics);
+        if (vsiData.length > 0) {
+          // Get the most recent VSI value
+          const latestVSI = vsiData[vsiData.length - 1];
+          if (latestVSI.vsi !== null) {
+            currentVSI = {
+              value: latestVSI.vsi,
+              classification: latestVSI.vsi_classification,
+              date: latestVSI.date
+            };
+          }
+        }
+      }
     }
 
     res.json({
@@ -440,7 +490,8 @@ router.get('/metrics/summary', (req, res) => {
           avg_streams: summary.avg_streams ? parseFloat(summary.avg_streams.toFixed(2)) : 0
         },
         trend: trend,
-        channel_breakdown: channelBreakdown
+        channel_breakdown: channelBreakdown,
+        current_vsi: currentVSI
       },
       filters: {
         channel_ids: channelIdsArray,
