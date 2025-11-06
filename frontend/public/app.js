@@ -1,5 +1,9 @@
 const API_BASE_URL = 'http://localhost:3000/api';
 
+if (typeof Chart !== 'undefined' && window['chartjs-plugin-annotation']) {
+  Chart.register(window['chartjs-plugin-annotation']);
+}
+
 let viewsChart = null;
 let rsiChart = null;
 let btcChart = null;
@@ -51,6 +55,151 @@ function getDateDaysAgo(days) {
 
 function getTodayDate() {
   return new Date().toISOString().split('T')[0];
+}
+
+function getVsiClassification(value) {
+  if (value === null || value === undefined) return null;
+  if (value <= 10) return 'Extreme Disinterest';
+  if (value <= 30) return 'Very Low Interest';
+  if (value <= 70) return 'Normal Range';
+  if (value <= 90) return 'High Interest';
+  return 'Extreme Hype';
+}
+
+function getVsiColor(value) {
+  if (value === null || value === undefined) return '#6b7280';
+  if (value <= 10) return '#065f46';
+  if (value <= 30) return '#16a34a';
+  if (value <= 70) return '#6b7280';
+  if (value <= 90) return '#f97316';
+  return '#b91c1c';
+}
+
+function getVsiSignal(currentValue, previousValue) {
+  if (
+    currentValue === null || currentValue === undefined ||
+    previousValue === null || previousValue === undefined
+  ) {
+    return null;
+  }
+
+  if (previousValue <= 90 && currentValue > 90) {
+    return {
+      type: 'EXTREME_HYPE',
+      message: 'Extreme Hype – Potential Top',
+      color: '#b91c1c',
+      icon: '🚨'
+    };
+  }
+
+  if (previousValue >= 10 && currentValue < 10) {
+    return {
+      type: 'EXTREME_DISINTEREST',
+      message: 'Extreme Disinterest – Potential Bottom',
+      color: '#0f766e',
+      icon: '🟢'
+    };
+  }
+
+  if (previousValue <= 70 && currentValue > 70) {
+    return {
+      type: 'HIGH_INTEREST',
+      message: 'High Interest – Consider Taking Profits',
+      color: '#f97316',
+      icon: '⚠️'
+    };
+  }
+
+  if (previousValue >= 30 && currentValue < 30) {
+    return {
+      type: 'LOW_INTEREST',
+      message: 'Low Interest – Consider Accumulating',
+      color: '#16a34a',
+      icon: '📉'
+    };
+  }
+
+  return null;
+}
+
+function setVsiSummary(value, classification) {
+  const valueEl = document.getElementById('vsiCurrentValue');
+  const classificationEl = document.getElementById('vsiCurrentClassification');
+
+  if (!valueEl || !classificationEl) {
+    return;
+  }
+
+  if (value === null || value === undefined) {
+    valueEl.textContent = '-';
+    valueEl.style.color = 'var(--text-secondary)';
+    classificationEl.textContent = '-';
+    classificationEl.style.color = 'var(--text-secondary)';
+    return;
+  }
+
+  const roundedValue = Math.round(value);
+  const toneColor = getVsiColor(value);
+  const displayClassification = classification || getVsiClassification(value) || '-';
+
+  valueEl.textContent = roundedValue;
+  valueEl.style.color = toneColor;
+  classificationEl.textContent = displayClassification;
+  classificationEl.style.color = toneColor;
+}
+
+function setVsiSignal(signal, context = {}) {
+  const container = document.getElementById('vsiSignals');
+  if (!container) {
+    return;
+  }
+
+  if (!signal) {
+    container.classList.remove('active');
+    container.style.borderLeftColor = 'var(--border-color)';
+    container.innerHTML = '<span class="vsi-signal-text">No active VSI signals</span>';
+    return;
+  }
+
+  const channelText = context.channel ? ` – ${context.channel}` : '';
+  let dateText = '';
+  if (context.date) {
+    const parsedDate = new Date(context.date);
+    if (!Number.isNaN(parsedDate.getTime())) {
+      dateText = ` (${formatDate(context.date)})`;
+    }
+  }
+
+  container.classList.add('active');
+  container.style.borderLeftColor = signal.color;
+  container.innerHTML = `
+    <div class="vsi-signal">
+      <span class="signal-icon">${signal.icon}</span>
+      <span>${signal.message}${channelText}${dateText}</span>
+    </div>
+  `;
+}
+
+function resetVsiSummary() {
+  const valueEl = document.getElementById('vsiCurrentValue');
+  const classificationEl = document.getElementById('vsiCurrentClassification');
+  const signalsEl = document.getElementById('vsiSignals');
+
+  if (valueEl) {
+    valueEl.textContent = '-';
+    valueEl.style.color = 'var(--text-secondary)';
+  }
+
+  if (classificationEl) {
+    classificationEl.textContent = '-';
+    classificationEl.style.color = 'var(--text-secondary)';
+  }
+
+  if (signalsEl) {
+    signalsEl.classList.remove('active');
+    signalsEl.style.borderLeftColor = 'var(--border-color)';
+    signalsEl.innerHTML = '<span class="vsi-signal-text">No active VSI signals</span>';
+  }
 }
 
 function showFeedback(elementId, message, type) {
@@ -258,6 +407,11 @@ async function fetchMetrics() {
       updateBtcChart(currentBtcData);
       updateFngChart(currentFngData);
       updateSummaryStats(summaryResult.data, currentMetrics);
+
+      if (currentViewMode === 'overlay') {
+        updateOverlayChart();
+      }
+
       document.getElementById('noDataMessage').style.display = 'none';
     }
     
@@ -297,7 +451,13 @@ function showNoData() {
     vsiChart.destroy();
     vsiChart = null;
   }
+
+  if (overlayChart) {
+    overlayChart.destroy();
+    overlayChart = null;
+  }
   
+  resetVsiSummary();
   resetSummaryStats();
 }
 
@@ -681,68 +841,116 @@ function updateRsiChart(rsiData, channelIds) {
 function updateVsiChart(vsiData, channelIds) {
   const vsiToggle = document.getElementById('vsiToggle');
   const vsiContainer = document.getElementById('vsiChartContainer');
-  
-  if (!vsiToggle.checked) {
-    vsiContainer.style.display = 'none';
-    if (vsiChart) {
-      vsiChart.destroy();
-      vsiChart = null;
-    }
-    return;
+  const showChart = vsiToggle ? vsiToggle.checked : true;
+
+  if (vsiContainer) {
+    vsiContainer.style.display = showChart ? 'block' : 'none';
   }
-  
-  vsiContainer.style.display = 'block';
-  
+
+  if (!showChart && vsiChart) {
+    vsiChart.destroy();
+    vsiChart = null;
+  }
+
   if (!vsiData || Object.keys(vsiData).length === 0) {
-    if (vsiChart) {
-      vsiChart.destroy();
-      vsiChart = null;
-    }
+    resetVsiSummary();
+    setVsiSignal(null);
     return;
   }
 
-  const datasets = [];
-  let allDates = new Set();
+  const effectiveChannelIds = (channelIds && channelIds.length > 0)
+    ? channelIds
+    : Object.keys(vsiData);
 
-  channelIds.forEach((channelId, index) => {
+  const allDates = new Set();
+  const channelSeries = [];
+  let latestEntryInfo = null;
+  let previousEntry = null;
+
+  effectiveChannelIds.forEach((channelId, index) => {
     const channelVsiData = vsiData[channelId];
-    if (!channelVsiData || channelVsiData.length === 0) {
+    if (!Array.isArray(channelVsiData) || channelVsiData.length === 0) {
       return;
     }
 
-    const channel = allChannels.find(c => c.id === parseInt(channelId));
+    const channel = allChannels.find(c => c.id === parseInt(channelId, 10));
     const channelLabel = channel ? (channel.channel_name || channel.channel_handle) : `Channel ${channelId}`;
     const color = CHART_COLORS[index % CHART_COLORS.length];
 
     channelVsiData.forEach(item => allDates.add(item.date));
 
+    const validEntries = channelVsiData.filter(item => typeof item.vsi === 'number');
+    if (validEntries.length > 0) {
+      const latestEntry = validEntries[validEntries.length - 1];
+      if (!latestEntryInfo || new Date(latestEntry.date) > new Date(latestEntryInfo.date)) {
+        latestEntryInfo = {
+          ...latestEntry,
+          channelLabel
+        };
+        previousEntry = validEntries.length > 1 ? validEntries[validEntries.length - 2] : null;
+      }
+    }
+
+    channelSeries.push({
+      label: channelLabel,
+      color,
+      data: channelVsiData
+    });
+  });
+
+  if (channelSeries.length === 0) {
+    resetVsiSummary();
+    setVsiSignal(null);
+    return;
+  }
+
+  const sortedDates = Array.from(allDates).sort();
+  const labels = sortedDates.map(date => formatDate(date));
+
+  const datasets = channelSeries.map(series => {
     const dateMap = {};
-    channelVsiData.forEach(item => {
+    const classificationMap = {};
+
+    series.data.forEach(item => {
       dateMap[item.date] = item.vsi;
+      classificationMap[item.date] = item.vsi_classification || getVsiClassification(item.vsi);
     });
 
-    const sortedDates = Array.from(allDates).sort();
-    const chartData = sortedDates.map(date => dateMap[date] !== undefined ? dateMap[date] : null);
+    const chartData = sortedDates.map(date => Object.prototype.hasOwnProperty.call(dateMap, date) ? dateMap[date] : null);
 
-    datasets.push({
-      label: channelLabel,
+    return {
+      label: series.label,
       data: chartData,
-      borderColor: color,
-      backgroundColor: color,
+      borderColor: series.color,
+      backgroundColor: `${series.color}33`,
       borderWidth: 2,
       fill: false,
       tension: 0.4,
       pointRadius: 3,
       pointHoverRadius: 5,
-      pointBackgroundColor: color,
+      pointBackgroundColor: series.color,
       pointBorderColor: '#fff',
       pointBorderWidth: 2,
-      spanGaps: true
-    });
+      spanGaps: true,
+      classifications: classificationMap
+    };
   });
 
-  const sortedDates = Array.from(allDates).sort();
-  const labels = sortedDates.map(date => formatDate(date));
+  if (latestEntryInfo) {
+    setVsiSummary(latestEntryInfo.vsi, latestEntryInfo.vsi_classification);
+    const signal = getVsiSignal(latestEntryInfo.vsi, previousEntry ? previousEntry.vsi : null);
+    setVsiSignal(signal, {
+      channel: latestEntryInfo.channelLabel,
+      date: latestEntryInfo.date
+    });
+  } else {
+    resetVsiSummary();
+    setVsiSignal(null);
+  }
+
+  if (!showChart) {
+    return;
+  }
 
   if (vsiChart) {
     vsiChart.destroy();
@@ -777,7 +985,7 @@ function updateVsiChart(vsiData, channelIds) {
           }
         },
         tooltip: {
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
           padding: 12,
           titleFont: {
             size: 14,
@@ -790,16 +998,16 @@ function updateVsiChart(vsiData, channelIds) {
           callbacks: {
             label: function(context) {
               const value = context.parsed.y;
-              if (value === null) return 'No data';
-              
-              let classification = '';
-              if (value <= 10) classification = ' (Extreme Disinterest)';
-              else if (value <= 30) classification = ' (Very Low Interest)';
-              else if (value <= 70) classification = ' (Normal Range)';
-              else if (value <= 90) classification = ' (High Interest)';
-              else classification = ' (Extreme Hype)';
-              
-              return [`VSI: ${value}${classification}`];
+              if (value === null || value === undefined) {
+                return 'No data';
+              }
+
+              const dateKey = sortedDates[context.dataIndex];
+              const classificationMap = context.dataset.classifications || {};
+              const classification = classificationMap[dateKey] ? ` (${classificationMap[dateKey]})` : '';
+              const roundedValue = Math.round(value);
+
+              return `${context.dataset.label}: VSI = ${roundedValue}${classification}`;
             }
           }
         },
@@ -913,7 +1121,7 @@ function updateVsiChart(vsiData, channelIds) {
           },
           grid: {
             color: function(context) {
-              if (context.tick.value === 90 || context.tick.value === 70 || 
+              if (context.tick.value === 90 || context.tick.value === 70 ||
                   context.tick.value === 30 || context.tick.value === 10) {
                 return 'rgba(0, 0, 0, 0.2)';
               }
@@ -1569,6 +1777,12 @@ function setupEventListeners() {
       updateOverlayChart();
     }
   });
+
+  document.getElementById('showVsiOverlay').addEventListener('change', () => {
+    if (currentViewMode === 'overlay') {
+      updateOverlayChart();
+    }
+  });
   
   document.getElementById('normalizeOverlay').addEventListener('change', () => {
     if (currentViewMode === 'overlay') {
@@ -1744,6 +1958,7 @@ Focus on actionable trading insights and provide specific recommendations based 
 
 async function init() {
   setupEventListeners();
+  resetVsiSummary();
   setupDatePresets();
   initializeDateRange(90);
   initializeCollectionDates();

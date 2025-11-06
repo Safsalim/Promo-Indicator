@@ -243,6 +243,10 @@
             <span>Show RSI overlay</span>
           </label>
           <label class="overlay-checkbox">
+            <input type="checkbox" id="showVsiOverlay" checked>
+            <span>Show VSI overlay</span>
+          </label>
+          <label class="overlay-checkbox">
             <input type="checkbox" id="normalizeOverlay">
             <span>Normalize to 0-100 scale</span>
           </label>
@@ -334,6 +338,14 @@
               <label for="vsiToggle">Show VSI</label>
             </div>
           </div>
+        </div>
+        <div class="vsi-current" id="vsiCurrentPanel">
+          <div class="vsi-current-label">Current VSI</div>
+          <div class="vsi-current-value" id="vsiCurrentValue">-</div>
+          <div class="vsi-current-classification" id="vsiCurrentClassification">-</div>
+        </div>
+        <div id="vsiSignals" class="vsi-signals">
+          <span class="vsi-signal-text">No active VSI signals</span>
         </div>
         <div class="vsi-description">
           <p>VSI shows where current viewership ranks relative to all historical data (0-100 percentile):</p>
