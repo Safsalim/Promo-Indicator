@@ -19,7 +19,8 @@
     "collect-metrics": "node src/scripts/collectLiveStreamMetrics.js",
     "recalculate-metrics": "node src/scripts/collectLiveStreamMetrics.js",
     "manage-channels": "node src/scripts/manageChannels.js",
-    "collect-market-data": "node src/scripts/collectMarketData.js"
+    "collect-market-data": "node src/scripts/collectMarketData.js",
+    "calculate-vsi": "node src/scripts/calculateVSI.js"
   },
   "keywords": [
     "youtube",
@@ -32,6 +33,7 @@
   "license": "MIT",
   "dependencies": {
     "chart.js": "^4.4.0",
+    "chartjs-plugin-annotation": "^3.0.1",
     "express": "^4.18.2",
     "googleapis": "^128.0.0",
     "better-sqlite3": "^9.2.2",

@@ -4,10 +4,12 @@ let viewsChart = null;
 let rsiChart = null;
 let btcChart = null;
 let fngChart = null;
+let vsiChart = null;
 let overlayChart = null;
 let allChannels = [];
 let currentMetrics = [];
 let currentRsiData = {};
+let currentVsiData = {};
 let currentRsiPeriod = 14;
 let currentBtcData = [];
 let currentFngData = [];
@@ -243,6 +245,7 @@ async function fetchMetrics() {
     
     currentMetrics = metricsResult.data || [];
     currentRsiData = metricsResult.rsi || {};
+    currentVsiData = metricsResult.vsi || {};
     currentBtcData = btcResult.data || [];
     currentFngData = fngResult.data || [];
     
@@ -251,6 +254,7 @@ async function fetchMetrics() {
     } else {
       updateChart(currentMetrics);
       updateRsiChart(currentRsiData, channelIds);
+      updateVsiChart(currentVsiData, channelIds);
       updateBtcChart(currentBtcData);
       updateFngChart(currentFngData);
       updateSummaryStats(summaryResult.data, currentMetrics);
@@ -287,6 +291,11 @@ function showNoData() {
   if (fngChart) {
     fngChart.destroy();
     fngChart = null;
+  }
+
+  if (vsiChart) {
+    vsiChart.destroy();
+    vsiChart = null;
   }
   
   resetSummaryStats();
@@ -646,6 +655,266 @@ function updateRsiChart(rsiData, channelIds) {
           grid: {
             color: function(context) {
               if (context.tick.value === 70 || context.tick.value === 30) {
+                return 'rgba(0, 0, 0, 0.2)';
+              }
+              return 'rgba(0, 0, 0, 0.05)';
+            }
+          }
+        },
+        x: {
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45,
+            font: {
+              size: 10
+            }
+          },
+          grid: {
+            display: false
+          }
+        }
+      }
+    }
+  });
+}
+
+function updateVsiChart(vsiData, channelIds) {
+  const vsiToggle = document.getElementById('vsiToggle');
+  const vsiContainer = document.getElementById('vsiChartContainer');
+  
+  if (!vsiToggle.checked) {
+    vsiContainer.style.display = 'none';
+    if (vsiChart) {
+      vsiChart.destroy();
+      vsiChart = null;
+    }
+    return;
+  }
+  
+  vsiContainer.style.display = 'block';
+  
+  if (!vsiData || Object.keys(vsiData).length === 0) {
+    if (vsiChart) {
+      vsiChart.destroy();
+      vsiChart = null;
+    }
+    return;
+  }
+
+  const datasets = [];
+  let allDates = new Set();
+
+  channelIds.forEach((channelId, index) => {
+    const channelVsiData = vsiData[channelId];
+    if (!channelVsiData || channelVsiData.length === 0) {
+      return;
+    }
+
+    const channel = allChannels.find(c => c.id === parseInt(channelId));
+    const channelLabel = channel ? (channel.channel_name || channel.channel_handle) : `Channel ${channelId}`;
+    const color = CHART_COLORS[index % CHART_COLORS.length];
+
+    channelVsiData.forEach(item => allDates.add(item.date));
+
+    const dateMap = {};
+    channelVsiData.forEach(item => {
+      dateMap[item.date] = item.vsi;
+    });
+
+    const sortedDates = Array.from(allDates).sort();
+    const chartData = sortedDates.map(date => dateMap[date] !== undefined ? dateMap[date] : null);
+
+    datasets.push({
+      label: channelLabel,
+      data: chartData,
+      borderColor: color,
+      backgroundColor: color,
+      borderWidth: 2,
+      fill: false,
+      tension: 0.4,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      pointBackgroundColor: color,
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
+      spanGaps: true
+    });
+  });
+
+  const sortedDates = Array.from(allDates).sort();
+  const labels = sortedDates.map(date => formatDate(date));
+
+  if (vsiChart) {
+    vsiChart.destroy();
+  }
+
+  const ctx = document.getElementById('vsiChart').getContext('2d');
+  vsiChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 2.5,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            usePointStyle: true,
+            padding: 15,
+            font: {
+              size: 12,
+              weight: '500'
+            }
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          padding: 12,
+          titleFont: {
+            size: 14,
+            weight: 'bold'
+          },
+          bodyFont: {
+            size: 13
+          },
+          bodySpacing: 6,
+          callbacks: {
+            label: function(context) {
+              const value = context.parsed.y;
+              if (value === null) return 'No data';
+              
+              let classification = '';
+              if (value <= 10) classification = ' (Extreme Disinterest)';
+              else if (value <= 30) classification = ' (Very Low Interest)';
+              else if (value <= 70) classification = ' (Normal Range)';
+              else if (value <= 90) classification = ' (High Interest)';
+              else classification = ' (Extreme Hype)';
+              
+              return [`VSI: ${value}${classification}`];
+            }
+          }
+        },
+        title: {
+          display: false
+        },
+        annotation: {
+          annotations: {
+            extremeHypeLine: {
+              type: 'line',
+              yMin: 90,
+              yMax: 90,
+              borderColor: 'rgba(139, 0, 0, 0.5)',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              label: {
+                content: 'Extreme Hype (90)',
+                enabled: true,
+                position: 'end'
+              }
+            },
+            highInterestLine: {
+              type: 'line',
+              yMin: 70,
+              yMax: 70,
+              borderColor: 'rgba(255, 182, 193, 0.5)',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              label: {
+                content: 'High Interest (70)',
+                enabled: true,
+                position: 'end'
+              }
+            },
+            lowInterestLine: {
+              type: 'line',
+              yMin: 30,
+              yMax: 30,
+              borderColor: 'rgba(144, 238, 144, 0.5)',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              label: {
+                content: 'Low Interest (30)',
+                enabled: true,
+                position: 'end'
+              }
+            },
+            extremeDisinterestLine: {
+              type: 'line',
+              yMin: 10,
+              yMax: 10,
+              borderColor: 'rgba(0, 100, 0, 0.5)',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              label: {
+                content: 'Extreme Disinterest (10)',
+                enabled: true,
+                position: 'end'
+              }
+            },
+            extremeHypeZone: {
+              type: 'box',
+              yMin: 90,
+              yMax: 100,
+              backgroundColor: 'rgba(139, 0, 0, 0.1)',
+              borderWidth: 0
+            },
+            highInterestZone: {
+              type: 'box',
+              yMin: 70,
+              yMax: 90,
+              backgroundColor: 'rgba(255, 182, 193, 0.1)',
+              borderWidth: 0
+            },
+            normalZone: {
+              type: 'box',
+              yMin: 30,
+              yMax: 70,
+              backgroundColor: 'rgba(128, 128, 128, 0.05)',
+              borderWidth: 0
+            },
+            lowInterestZone: {
+              type: 'box',
+              yMin: 10,
+              yMax: 30,
+              backgroundColor: 'rgba(144, 238, 144, 0.1)',
+              borderWidth: 0
+            },
+            extremeDisinterestZone: {
+              type: 'box',
+              yMin: 0,
+              yMax: 10,
+              backgroundColor: 'rgba(0, 100, 0, 0.1)',
+              borderWidth: 0
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: {
+            stepSize: 10,
+            callback: function(value) {
+              return value;
+            },
+            font: {
+              size: 11
+            }
+          },
+          grid: {
+            color: function(context) {
+              if (context.tick.value === 90 || context.tick.value === 70 || 
+                  context.tick.value === 30 || context.tick.value === 10) {
                 return 'rgba(0, 0, 0, 0.2)';
               }
               return 'rgba(0, 0, 0, 0.05)';
@@ -1277,6 +1546,13 @@ function setupEventListeners() {
     const channelIds = getSelectedChannelIds();
     if (currentRsiData && Object.keys(currentRsiData).length > 0) {
       updateRsiChart(currentRsiData, channelIds);
+    }
+  });
+  
+  document.getElementById('vsiToggle').addEventListener('change', () => {
+    const channelIds = getSelectedChannelIds();
+    if (currentVsiData && Object.keys(currentVsiData).length > 0) {
+      updateVsiChart(currentVsiData, channelIds);
     }
   });
   

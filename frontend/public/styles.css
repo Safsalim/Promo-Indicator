@@ -1224,3 +1224,91 @@ footer {
     width: 100%;
   }
 }
+
+/* VSI Chart Styles */
+.vsi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.vsi-header h2 {
+  margin-bottom: 0;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.vsi-controls {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.vsi-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vsi-toggle label {
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 0.95em;
+  cursor: pointer;
+}
+
+.vsi-description {
+  margin: 20px 0;
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  border-left: 4px solid var(--primary-color);
+}
+
+.vsi-description p {
+  margin-bottom: 12px;
+  color: var(--text-secondary);
+  font-size: 0.95em;
+}
+
+.vsi-legend {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.vsi-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9em;
+}
+
+.vsi-indicator {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+.vsi-legend-item.extreme-hype .vsi-indicator {
+  background: linear-gradient(135deg, #8B0000 0%, #DC143C 100%);
+}
+
+.vsi-legend-item.high-interest .vsi-indicator {
+  background: linear-gradient(135deg, #FFB6C1 0%, #FF69B4 100%);
+}
+
+.vsi-legend-item.normal .vsi-indicator {
+  background: linear-gradient(135deg, #808080 0%, #A9A9A9 100%);
+}
+
+.vsi-legend-item.low-interest .vsi-indicator {
+  background: linear-gradient(135deg, #90EE90 0%, #32CD32 100%);
+}
+
+.vsi-legend-item.extreme-disinterest .vsi-indicator {
+  background: linear-gradient(135deg, #006400 0%, #228B22 100%);
+}

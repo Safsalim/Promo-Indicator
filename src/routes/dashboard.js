@@ -6,6 +6,7 @@ const LiveStreamVideo = require('../models/LiveStreamVideo');
 const { YouTubeApiClient, YouTubeApiError } = require('../services/youtubeApiClient');
 const liveStreamCollector = require('../services/liveStreamCollector');
 const { calculateRSIWithDates, categorizeRSI, getRSILabel } = require('../utils/indicators');
+const { calculateMA7AndVSI, getVSIColor, checkVSISignal } = require('../utils/vsi');
 
 // GET /api/channels - List all tracked channels with their metadata
 router.get('/channels', (req, res) => {
@@ -231,11 +232,47 @@ router.get('/metrics', (req, res) => {
       });
     }
 
+    // Calculate VSI for each channel
+    const vsiByChannel = {};
+    if (channelIdsArray && channelIdsArray.length > 0) {
+      channelIdsArray.forEach(channelId => {
+        const channelMetrics = metrics.filter(m => m.channel_id === channelId);
+        if (channelMetrics.length > 0) {
+          const vsiData = calculateMA7AndVSI(channelMetrics);
+          vsiByChannel[channelId] = vsiData;
+        }
+      });
+    } else {
+      // If no channel filter, calculate VSI for all channels grouped by channel_id
+      const uniqueChannelIds = [...new Set(metrics.map(m => m.channel_id))];
+      uniqueChannelIds.forEach(channelId => {
+        const channelMetrics = metrics.filter(m => m.channel_id === channelId);
+        if (channelMetrics.length > 0) {
+          const vsiData = calculateMA7AndVSI(channelMetrics);
+          vsiByChannel[channelId] = vsiData;
+        }
+      });
+    }
+
+    // Merge VSI data back into metrics
+    const metricsWithVSI = metrics.map(metric => {
+      const channelVSI = vsiByChannel[metric.channel_id];
+      const vsiEntry = channelVSI ? channelVSI.find(v => v.id === metric.id) : null;
+      
+      return {
+        ...metric,
+        views_ma7: vsiEntry ? vsiEntry.views_ma7 : null,
+        vsi: vsiEntry ? vsiEntry.vsi : null,
+        vsi_classification: vsiEntry ? vsiEntry.vsi_classification : null
+      };
+    });
+
     res.json({
       success: true,
-      data: metrics,
-      count: metrics.length,
+      data: metricsWithVSI,
+      count: metricsWithVSI.length,
       rsi: rsiByChannel,
+      vsi: vsiByChannel,
       filters: {
         channel_ids: channelIdsArray,
         start_date: start_date || null,
@@ -249,6 +286,34 @@ router.get('/metrics', (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch metrics'
+    });
+  }
+});
+
+// POST /api/vsi/calculate - Calculate and store VSI for all channels
+router.post('/vsi/calculate', (req, res) => {
+  try {
+    const { channel_id } = req.body;
+    
+    let result;
+    if (channel_id) {
+      // Calculate for specific channel
+      result = LiveStreamMetrics.calculateAndUpdateVSIForChannel(parseInt(channel_id, 10));
+    } else {
+      // Calculate for all channels
+      result = LiveStreamMetrics.calculateAndUpdateVSIForAllChannels();
+    }
+    
+    res.json({
+      success: true,
+      data: result,
+      message: `VSI calculated and updated for ${result.updated} records across ${result.channels || 1} channel(s)`
+    });
+  } catch (error) {
+    console.error('Error calculating VSI:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to calculate VSI'
     });
   }
 });

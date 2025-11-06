@@ -6,6 +6,7 @@
   <title>YouTube Live Stream Sentiment Dashboard</title>
   <link rel="stylesheet" href="styles.css">
   <script src="/node_modules/chart.js/dist/chart.umd.js"></script>
+  <script src="/node_modules/chartjs-plugin-annotation/dist/chartjs-plugin-annotation.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -317,6 +318,50 @@
         </div>
         <div id="rsiChartContainer" class="chart-container rsi-chart-container">
           <canvas id="rsiChart"></canvas>
+        </div>
+      </section>
+
+      <!-- VSI Chart Section -->
+      <section class="chart-section vsi-section">
+        <div class="vsi-header">
+          <h2>VSI - Views Sentiment Indicator</h2>
+          <div class="vsi-controls">
+            <div class="vsi-toggle">
+              <label class="toggle-switch">
+                <input type="checkbox" id="vsiToggle" checked>
+                <span class="toggle-slider"></span>
+              </label>
+              <label for="vsiToggle">Show VSI</label>
+            </div>
+          </div>
+        </div>
+        <div class="vsi-description">
+          <p>VSI shows where current viewership ranks relative to all historical data (0-100 percentile):</p>
+          <div class="vsi-legend">
+            <div class="vsi-legend-item extreme-hype">
+              <span class="vsi-indicator"></span>
+              <span><strong>90-100:</strong> Extreme Hype (Strong Sell)</span>
+            </div>
+            <div class="vsi-legend-item high-interest">
+              <span class="vsi-indicator"></span>
+              <span><strong>70-90:</strong> High Interest (Sell)</span>
+            </div>
+            <div class="vsi-legend-item normal">
+              <span class="vsi-indicator"></span>
+              <span><strong>30-70:</strong> Normal Range (Neutral)</span>
+            </div>
+            <div class="vsi-legend-item low-interest">
+              <span class="vsi-indicator"></span>
+              <span><strong>10-30:</strong> Very Low Interest (Buy)</span>
+            </div>
+            <div class="vsi-legend-item extreme-disinterest">
+              <span class="vsi-indicator"></span>
+              <span><strong>0-10:</strong> Extreme Disinterest (Strong Buy)</span>
+            </div>
+          </div>
+        </div>
+        <div id="vsiChartContainer" class="chart-container vsi-chart-container">
+          <canvas id="vsiChart"></canvas>
         </div>
       </section>
 
