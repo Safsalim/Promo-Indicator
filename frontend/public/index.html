@@ -242,6 +242,10 @@
             <span>Show RSI overlay</span>
           </label>
           <label class="overlay-checkbox">
+            <input type="checkbox" id="showVsiOverlay">
+            <span>Show VSI overlay</span>
+          </label>
+          <label class="overlay-checkbox">
             <input type="checkbox" id="normalizeOverlay">
             <span>Normalize to 0-100 scale</span>
           </label>
@@ -364,6 +368,45 @@
         </div>
         <div class="chart-container">
           <canvas id="fngChart"></canvas>
+        </div>
+      </section>
+
+      <!-- VSI (Views Sentiment Indicator) Chart Section -->
+      <section class="chart-section vsi-section">
+        <h2>VSI - Views Sentiment Indicator</h2>
+        <p class="section-description">YouTube livestream sentiment score (0-100 scale) based on 7-day moving average views</p>
+        <div class="vsi-legend">
+          <div class="vsi-legend-item extreme-disinterest">
+            <span class="vsi-indicator"></span>
+            <span><strong>0-10:</strong> Extreme Disinterest (Buy Signal)</span>
+          </div>
+          <div class="vsi-legend-item low-interest">
+            <span class="vsi-indicator"></span>
+            <span><strong>10-30:</strong> Low Interest</span>
+          </div>
+          <div class="vsi-legend-item normal">
+            <span class="vsi-indicator"></span>
+            <span><strong>30-70:</strong> Normal Range</span>
+          </div>
+          <div class="vsi-legend-item high-interest">
+            <span class="vsi-indicator"></span>
+            <span><strong>70-90:</strong> High Interest</span>
+          </div>
+          <div class="vsi-legend-item extreme-hype">
+            <span class="vsi-indicator"></span>
+            <span><strong>90-100:</strong> Extreme Hype (Sell Signal)</span>
+          </div>
+        </div>
+        <div class="vsi-current-metric">
+          <div class="current-vsi-card">
+            <div class="current-vsi-label">Current VSI</div>
+            <div class="current-vsi-value" id="currentVsiValue">-</div>
+            <div class="current-vsi-classification" id="currentVsiClassification">-</div>
+            <div class="current-vsi-trend" id="currentVsiTrend">-</div>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas id="vsiChart"></canvas>
         </div>
       </section>
 

@@ -5,7 +5,7 @@ const LiveStreamMetrics = require('../models/LiveStreamMetrics');
 const LiveStreamVideo = require('../models/LiveStreamVideo');
 const { YouTubeApiClient, YouTubeApiError } = require('../services/youtubeApiClient');
 const liveStreamCollector = require('../services/liveStreamCollector');
-const { calculateRSIWithDates, categorizeRSI, getRSILabel, calculateMA7WithDates } = require('../utils/indicators');
+const { calculateRSIWithDates, categorizeRSI, getRSILabel, calculateMA7WithDates, calculateVSI } = require('../utils/indicators');
 
 // GET /api/channels - List all tracked channels with their metadata
 router.get('/channels', (req, res) => {
@@ -219,9 +219,10 @@ router.get('/metrics', (req, res) => {
     const stmt = db.prepare(query);
     const metrics = stmt.all(...params);
 
-    // Calculate RSI and MA7 for each channel
+    // Calculate RSI, MA7, and VSI for each channel
     const rsiByChannel = {};
     const ma7ByChannel = {};
+    const vsiByChannel = {};
     if (channelIdsArray && channelIdsArray.length > 0) {
       channelIdsArray.forEach(channelId => {
         const channelMetrics = metrics.filter(m => m.channel_id === channelId);
@@ -231,11 +232,14 @@ router.get('/metrics', (req, res) => {
 
           const ma7Data = calculateMA7WithDates(channelMetrics);
           ma7ByChannel[channelId] = ma7Data;
+
+          const vsiData = calculateVSI(ma7Data);
+          vsiByChannel[channelId] = vsiData;
         }
       });
     }
 
-    // Merge MA7 data into metrics
+    // Merge MA7 and VSI data into metrics
     const enrichedMetrics = metrics.map(metric => {
       const ma7Data = ma7ByChannel[metric.channel_id];
       if (ma7Data) {
@@ -244,6 +248,15 @@ router.get('/metrics', (req, res) => {
           metric.views_ma7 = ma7Entry.views_ma7;
         }
       }
+
+      const vsiData = vsiByChannel[metric.channel_id];
+      if (vsiData) {
+        const vsiEntry = vsiData.find(entry => entry.date === metric.date);
+        if (vsiEntry) {
+          metric.vsi = vsiEntry.vsi;
+        }
+      }
+
       return metric;
     });
 
@@ -253,6 +266,7 @@ router.get('/metrics', (req, res) => {
       count: enrichedMetrics.length,
       rsi: rsiByChannel,
       ma7: ma7ByChannel,
+      vsi: vsiByChannel,
       filters: {
         channel_ids: channelIdsArray,
         start_date: start_date || null,
