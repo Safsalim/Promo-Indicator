@@ -108,6 +108,41 @@
         </div>
       </section>
 
+      <!-- Date Exclusion Section -->
+      <section class="exclusion-section">
+        <h2>Date Exclusion Management</h2>
+        <div class="exclusion-container">
+          <p class="exclusion-desc">Exclude anomalous dates from calculations to improve analysis accuracy</p>
+          <div class="exclusion-controls">
+            <div class="exclusion-date-group">
+              <label for="excludeDate">Date to Exclude/Restore</label>
+              <input type="date" id="excludeDate" aria-label="Date to exclude or restore">
+            </div>
+            <div class="exclusion-actions">
+              <button id="excludeDateBtn" class="btn-exclude">
+                <span class="btn-icon">🚫</span>
+                <span>Exclude Date</span>
+              </button>
+              <button id="restoreDateBtn" class="btn-restore">
+                <span class="btn-icon">✅</span>
+                <span>Restore Date</span>
+              </button>
+              <button id="viewExcludedBtn" class="btn-secondary">
+                <span class="btn-icon">📋</span>
+                <span>View Excluded Dates</span>
+              </button>
+            </div>
+          </div>
+          <div id="exclusionFeedback" class="feedback-message" style="display: none;"></div>
+          
+          <!-- Excluded Dates List -->
+          <div id="excludedDatesList" class="excluded-list" style="display: none;">
+            <h3>Excluded Dates</h3>
+            <div id="excludedDatesContent" class="excluded-content"></div>
+          </div>
+        </div>
+      </section>
+
       <!-- Filters Section -->
       <section class="filters-section">
         <h2>Filters</h2>

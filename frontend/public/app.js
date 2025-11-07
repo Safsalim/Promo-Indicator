@@ -219,7 +219,8 @@ async function fetchMetrics() {
       channel_ids: channelIds.join(','),
       start_date: startDate,
       end_date: endDate,
-      rsi_period: currentRsiPeriod
+      rsi_period: currentRsiPeriod,
+      include_excluded: 'true' // Include excluded dates to show them in chart
     });
     
     const marketParams = new URLSearchParams({
@@ -227,9 +228,17 @@ async function fetchMetrics() {
       end_date: endDate
     });
 
+    // For summary calculations, exclude excluded dates by default
+    const summaryParams = new URLSearchParams({
+      channel_ids: channelIds.join(','),
+      start_date: startDate,
+      end_date: endDate
+      // Note: include_excluded is not set, so excluded dates will be filtered out
+    });
+
     const [metricsResponse, summaryResponse, btcResponse, fngResponse] = await Promise.all([
       fetch(`${API_BASE_URL}/metrics?${params}`),
-      fetch(`${API_BASE_URL}/metrics/summary?${params}`),
+      fetch(`${API_BASE_URL}/metrics/summary?${summaryParams}`),
       fetch(`${API_BASE_URL}/btc-price?${marketParams}`),
       fetch(`${API_BASE_URL}/fear-greed?${marketParams}`)
     ]);
@@ -304,6 +313,7 @@ function showNoData() {
 function updateChart(metrics) {
    const groupedByChannel = {};
    const ma7Grouped = {};
+   const excludedDates = new Set();
 
    metrics.forEach(metric => {
      const channelId = metric.channel_id;
@@ -319,12 +329,18 @@ function updateChart(metrics) {
      }
      groupedByChannel[channelId].data.push({
        date: metric.date,
-       views: metric.total_live_stream_views
+       views: metric.total_live_stream_views,
+       is_excluded: metric.is_excluded
      });
      ma7Grouped[channelId].data.push({
        date: metric.date,
-       views_ma7: metric.views_ma7
+       views_ma7: metric.views_ma7,
+       is_excluded: metric.is_excluded
      });
+     
+     if (metric.is_excluded) {
+       excludedDates.add(metric.date);
+     }
    });
 
    const allDates = [...new Set(metrics.map(m => m.date))].sort();
@@ -334,11 +350,17 @@ function updateChart(metrics) {
      const color = CHART_COLORS[index % CHART_COLORS.length];
 
      const dateMap = {};
+     const excludedMap = {};
      channelData.data.forEach(item => {
        dateMap[item.date] = item.views;
+       excludedMap[item.date] = item.is_excluded;
      });
 
      const chartData = allDates.map(date => dateMap[date] || 0);
+     const pointStyles = allDates.map(date => excludedMap[date] ? 'dash' : 'circle');
+     const pointColors = allDates.map(date => excludedMap[date] ? '#999' : color);
+     const pointRadiuses = allDates.map(date => excludedMap[date] ? 2 : 4);
+     const pointBorderColors = allDates.map(date => excludedMap[date] ? '#999' : '#fff');
 
      return {
        label: channelData.label,
@@ -348,10 +370,11 @@ function updateChart(metrics) {
        borderWidth: 2,
        fill: false,
        tension: 0.4,
-       pointRadius: 4,
+       pointRadius: pointRadiuses,
        pointHoverRadius: 6,
-       pointBackgroundColor: color,
-       pointBorderColor: '#fff',
+       pointStyle: pointStyles,
+       pointBackgroundColor: pointColors,
+       pointBorderColor: pointBorderColors,
        pointBorderWidth: 2
      };
    });
@@ -363,11 +386,15 @@ function updateChart(metrics) {
        const color = CHART_COLORS[index % CHART_COLORS.length];
 
        const dateMap = {};
+       const excludedMap = {};
        ma7Data.data.forEach(item => {
          dateMap[item.date] = item.views_ma7;
+         excludedMap[item.date] = item.is_excluded;
        });
 
        const chartData = allDates.map(date => dateMap[date] || null);
+       const pointStyles = allDates.map(date => excludedMap[date] ? 'dash' : 'circle');
+       const pointColors = allDates.map(date => excludedMap[date] ? '#999' : color);
 
        datasets.push({
          label: ma7Data.label,
@@ -380,7 +407,8 @@ function updateChart(metrics) {
          tension: 0.4,
          pointRadius: 0,
          pointHoverRadius: 4,
-         pointBackgroundColor: color,
+         pointStyle: pointStyles,
+         pointBackgroundColor: pointColors,
          pointBorderColor: '#fff',
          pointBorderWidth: 2,
          spanGaps: true
@@ -502,6 +530,36 @@ function updateChart(metrics) {
       }
     }
   });
+  
+  // Update chart legend to show excluded dates indicator
+  updateChartLegend(excludedDates);
+}
+
+function updateChartLegend(excludedDates) {
+  const legendContainer = document.getElementById('chartLegend');
+  
+  if (excludedDates.size > 0) {
+    const excludedLegend = document.createElement('div');
+    excludedLegend.className = 'excluded-legend-item';
+    excludedLegend.innerHTML = `
+      <div class="excluded-legend-box"></div>
+      <span>Excluded dates (${excludedDates.size} date${excludedDates.size > 1 ? 's' : ''})</span>
+    `;
+    
+    // Check if excluded legend already exists
+    const existingExcludedLegend = legendContainer.querySelector('.excluded-legend-item');
+    if (existingExcludedLegend) {
+      existingExcludedLegend.remove();
+    }
+    
+    legendContainer.appendChild(excludedLegend);
+  } else {
+    // Remove excluded legend if no excluded dates
+    const existingExcludedLegend = legendContainer.querySelector('.excluded-legend-item');
+    if (existingExcludedLegend) {
+      existingExcludedLegend.remove();
+    }
+  }
 }
 
 function updateRsiChart(rsiData, channelIds) {
@@ -1598,6 +1656,11 @@ function setupEventListeners() {
   
   document.getElementById('applyFiltersBtn').addEventListener('click', fetchMetrics);
   
+  // Exclusion event listeners
+  document.getElementById('excludeDateBtn').addEventListener('click', excludeDate);
+  document.getElementById('restoreDateBtn').addEventListener('click', restoreDate);
+  document.getElementById('viewExcludedBtn').addEventListener('click', toggleExcludedDatesList);
+  
   document.getElementById('collectDataBtn').addEventListener('click', collectHistoricalData);
   
   document.getElementById('recalculateDataBtn').addEventListener('click', recalculateData);
@@ -1815,6 +1878,170 @@ Focus on actionable trading insights and provide specific recommendations based 
     alert('Failed to copy prompt to clipboard. Please copy it manually from the console.');
     console.log('AI Analysis Prompt:\n\n' + prompt);
   });
+}
+
+// Exclusion functionality
+async function excludeDate() {
+  const dateInput = document.getElementById('excludeDate');
+  const selectedChannelIds = getSelectedChannelIds();
+  const date = dateInput.value;
+  
+  if (!date) {
+    showFeedback('exclusionFeedback', 'Please select a date', 'error');
+    return;
+  }
+  
+  if (selectedChannelIds.length === 0) {
+    showFeedback('exclusionFeedback', 'Please select at least one channel', 'error');
+    return;
+  }
+  
+  try {
+    const promises = selectedChannelIds.map(channelId => 
+      fetch(`${API_BASE_URL}/metrics/exclude-by-date`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          channel_id: parseInt(channelId),
+          date: date
+        })
+      })
+    );
+    
+    const results = await Promise.all(promises);
+    const successCount = results.filter(r => r.ok).length;
+    
+    if (successCount === selectedChannelIds.length) {
+      showFeedback('exclusionFeedback', `Successfully excluded ${date} for ${successCount} channel(s)`, 'success');
+      dateInput.value = '';
+      await fetchMetrics(); // Refresh the data
+      await loadExcludedDates(); // Refresh excluded dates list
+    } else {
+      showFeedback('exclusionFeedback', `Failed to exclude ${date} for some channels`, 'error');
+    }
+  } catch (error) {
+    console.error('Error excluding date:', error);
+    showFeedback('exclusionFeedback', 'Failed to exclude date', 'error');
+  }
+}
+
+async function restoreDate() {
+  const dateInput = document.getElementById('excludeDate');
+  const selectedChannelIds = getSelectedChannelIds();
+  const date = dateInput.value;
+  
+  if (!date) {
+    showFeedback('exclusionFeedback', 'Please select a date', 'error');
+    return;
+  }
+  
+  if (selectedChannelIds.length === 0) {
+    showFeedback('exclusionFeedback', 'Please select at least one channel', 'error');
+    return;
+  }
+  
+  try {
+    const promises = selectedChannelIds.map(channelId => 
+      fetch(`${API_BASE_URL}/metrics/restore-by-date`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          channel_id: parseInt(channelId),
+          date: date
+        })
+      })
+    );
+    
+    const results = await Promise.all(promises);
+    const successCount = results.filter(r => r.ok).length;
+    
+    if (successCount === selectedChannelIds.length) {
+      showFeedback('exclusionFeedback', `Successfully restored ${date} for ${successCount} channel(s)`, 'success');
+      dateInput.value = '';
+      await fetchMetrics(); // Refresh the data
+      await loadExcludedDates(); // Refresh excluded dates list
+    } else {
+      showFeedback('exclusionFeedback', `Failed to restore ${date} for some channels`, 'error');
+    }
+  } catch (error) {
+    console.error('Error restoring date:', error);
+    showFeedback('exclusionFeedback', 'Failed to restore date', 'error');
+  }
+}
+
+async function loadExcludedDates() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/metrics/excluded`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch excluded dates');
+    }
+    
+    const result = await response.json();
+    const excludedDates = result.data || [];
+    
+    displayExcludedDates(excludedDates);
+  } catch (error) {
+    console.error('Error loading excluded dates:', error);
+    showFeedback('exclusionFeedback', 'Failed to load excluded dates', 'error');
+  }
+}
+
+function displayExcludedDates(excludedDates) {
+  const content = document.getElementById('excludedDatesContent');
+  const listContainer = document.getElementById('excludedDatesList');
+  
+  if (excludedDates.length === 0) {
+    content.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">No excluded dates found</p>';
+  } else {
+    content.innerHTML = excludedDates.map(item => `
+      <div class="excluded-item">
+        <div class="excluded-info">
+          <div class="excluded-date">${formatDate(item.date)}</div>
+          <div class="excluded-channel">${item.channel_name || item.channel_handle}</div>
+          <div class="excluded-views">${formatNumber(item.total_live_stream_views)} views</div>
+        </div>
+        <button class="restore-btn" onclick="restoreExcludedById(${item.id})">
+          Restore
+        </button>
+      </div>
+    `).join('');
+  }
+}
+
+async function restoreExcludedById(id) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/metrics/${id}/restore`, {
+      method: 'POST'
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to restore excluded date');
+    }
+    
+    showFeedback('exclusionFeedback', 'Successfully restored excluded date', 'success');
+    await fetchMetrics(); // Refresh the data
+    await loadExcludedDates(); // Refresh excluded dates list
+  } catch (error) {
+    console.error('Error restoring excluded date:', error);
+    showFeedback('exclusionFeedback', 'Failed to restore excluded date', 'error');
+  }
+}
+
+function toggleExcludedDatesList() {
+  const listContainer = document.getElementById('excludedDatesList');
+  const isVisible = listContainer.style.display !== 'none';
+  
+  if (isVisible) {
+    listContainer.style.display = 'none';
+  } else {
+    listContainer.style.display = 'block';
+    loadExcludedDates();
+  }
 }
 
 async function init() {

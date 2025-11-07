@@ -115,7 +115,7 @@ router.post('/channels', async (req, res) => {
 // GET /api/metrics - Query metrics with filters
 router.get('/metrics', (req, res) => {
   try {
-    const { channel_ids, start_date, end_date, limit, rsi_period } = req.query;
+    const { channel_ids, start_date, end_date, limit, rsi_period, include_excluded } = req.query;
 
     // Input validation
     let channelIdsArray = null;
@@ -209,6 +209,11 @@ router.get('/metrics', (req, res) => {
       params.push(end_date);
     }
 
+    // Filter out excluded dates unless explicitly included
+    if (include_excluded !== 'true') {
+      query += ` AND lsm.is_excluded = 0`;
+    }
+
     query += ` ORDER BY lsm.date ASC, c.channel_name ASC`;
 
     if (limitValue) {
@@ -287,7 +292,7 @@ router.get('/metrics', (req, res) => {
 // GET /api/metrics/summary - Get summary statistics
 router.get('/metrics/summary', (req, res) => {
   try {
-    const { channel_ids, start_date, end_date } = req.query;
+    const { channel_ids, start_date, end_date, include_excluded } = req.query;
 
     // Input validation
     let channelIdsArray = null;
@@ -365,6 +370,11 @@ router.get('/metrics/summary', (req, res) => {
       params.push(end_date);
     }
 
+    // Filter out excluded dates unless explicitly included
+    if (include_excluded !== 'true') {
+      query += ` AND lsm.is_excluded = 0`;
+    }
+
     const stmt = db.prepare(query);
     const summary = stmt.get(...params);
 
@@ -379,6 +389,7 @@ router.get('/metrics/summary', (req, res) => {
         WHERE date >= ? AND date <= ?
         ${channelIdsArray && channelIdsArray.length > 0 ? 
           `AND channel_id IN (${channelIdsArray.map(() => '?').join(',')})` : ''}
+        ${include_excluded !== 'true' ? 'AND is_excluded = 0' : ''}
         GROUP BY date
         ORDER BY date ASC
       `;
@@ -789,6 +800,183 @@ router.post('/collect-metrics', async (req, res) => {
       success: false,
       error: 'Failed to collect metrics',
       message: error.message
+    });
+  }
+});
+
+// POST /api/metrics/:id/exclude - Mark a metric as excluded
+router.post('/metrics/:id/exclude', (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid metric ID is required'
+      });
+    }
+
+    const result = LiveStreamMetrics.excludeById(parseInt(id));
+    
+    if (result.changes === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Metric not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Metric marked as excluded',
+      data: { id: parseInt(id) }
+    });
+  } catch (error) {
+    console.error('Error excluding metric:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to exclude metric'
+    });
+  }
+});
+
+// POST /api/metrics/:id/restore - Restore an excluded metric
+router.post('/metrics/:id/restore', (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid metric ID is required'
+      });
+    }
+
+    const result = LiveStreamMetrics.restoreById(parseInt(id));
+    
+    if (result.changes === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Metric not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Metric restored',
+      data: { id: parseInt(id) }
+    });
+  } catch (error) {
+    console.error('Error restoring metric:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to restore metric'
+    });
+  }
+});
+
+// GET /api/metrics/excluded - List all excluded metrics
+router.get('/metrics/excluded', (req, res) => {
+  try {
+    const excludedMetrics = LiveStreamMetrics.findExcluded();
+    
+    res.json({
+      success: true,
+      data: excludedMetrics,
+      count: excludedMetrics.length
+    });
+  } catch (error) {
+    console.error('Error fetching excluded metrics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch excluded metrics'
+    });
+  }
+});
+
+// POST /api/metrics/exclude-by-date - Exclude a metric by channel and date
+router.post('/metrics/exclude-by-date', (req, res) => {
+  try {
+    const { channel_id, date } = req.body;
+    
+    if (!channel_id || !date) {
+      return res.status(400).json({
+        success: false,
+        error: 'channel_id and date are required'
+      });
+    }
+
+    // Validate date format (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(date)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Date must be in YYYY-MM-DD format'
+      });
+    }
+
+    const result = LiveStreamMetrics.excludeDay(channel_id, date);
+    
+    if (result.changes === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Metric not found for the specified channel and date'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Metric marked as excluded',
+      data: { channel_id, date }
+    });
+  } catch (error) {
+    console.error('Error excluding metric by date:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to exclude metric'
+    });
+  }
+});
+
+// POST /api/metrics/restore-by-date - Restore a metric by channel and date
+router.post('/metrics/restore-by-date', (req, res) => {
+  try {
+    const { channel_id, date } = req.body;
+    
+    if (!channel_id || !date) {
+      return res.status(400).json({
+        success: false,
+        error: 'channel_id and date are required'
+      });
+    }
+
+    // Validate date format (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(date)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Date must be in YYYY-MM-DD format'
+      });
+    }
+
+    const result = LiveStreamMetrics.restoreDay(channel_id, date);
+    
+    if (result.changes === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Metric not found for the specified channel and date'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Metric restored',
+      data: { channel_id, date }
+    });
+  } catch (error) {
+    console.error('Error restoring metric by date:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to restore metric'
     });
   }
 });

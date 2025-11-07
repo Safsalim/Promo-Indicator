@@ -194,6 +194,85 @@ class LiveStreamMetrics {
     `);
     return stmt.get(channelId);
   }
+
+  static excludeDay(channelId, date) {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+      UPDATE live_stream_metrics 
+      SET is_excluded = 1, updated_at = CURRENT_TIMESTAMP
+      WHERE channel_id = ? AND date = ?
+    `);
+    return stmt.run(channelId, date);
+  }
+
+  static restoreDay(channelId, date) {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+      UPDATE live_stream_metrics 
+      SET is_excluded = 0, updated_at = CURRENT_TIMESTAMP
+      WHERE channel_id = ? AND date = ?
+    `);
+    return stmt.run(channelId, date);
+  }
+
+  static excludeById(id) {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+      UPDATE live_stream_metrics 
+      SET is_excluded = 1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    return stmt.run(id);
+  }
+
+  static restoreById(id) {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+      UPDATE live_stream_metrics 
+      SET is_excluded = 0, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    return stmt.run(id);
+  }
+
+  static findExcluded() {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+      SELECT lsm.*, c.channel_handle, c.channel_name
+      FROM live_stream_metrics lsm
+      JOIN channels c ON lsm.channel_id = c.id
+      WHERE lsm.is_excluded = 1
+      ORDER BY lsm.date DESC, c.channel_name ASC
+    `);
+    return stmt.all();
+  }
+
+  static findExcludedByChannelId(channelId) {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+      SELECT * FROM live_stream_metrics 
+      WHERE channel_id = ? AND is_excluded = 1
+      ORDER BY date DESC
+    `);
+    return stmt.all(channelId);
+  }
+
+  static getMetricsSummaryByChannelIdExcluded(channelId) {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+      SELECT 
+        COUNT(*) as total_days,
+        SUM(total_live_stream_views) as total_views,
+        AVG(total_live_stream_views) as avg_views,
+        MAX(total_live_stream_views) as max_views,
+        MIN(total_live_stream_views) as min_views,
+        SUM(live_stream_count) as total_streams,
+        AVG(live_stream_count) as avg_streams
+      FROM live_stream_metrics 
+      WHERE channel_id = ? AND is_excluded = 0
+    `);
+    return stmt.get(channelId);
+  }
 }
 
 module.exports = LiveStreamMetrics;

@@ -884,6 +884,71 @@ footer {
   }
 }
 
+/* Button Styles */
+.btn-primary, .btn-secondary {
+  padding: 10px 20px;
+  border: 2px solid;
+  border-radius: 8px;
+  font-size: 0.95em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-dark);
+  border-color: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-large {
+  padding: 12px 24px;
+  font-size: 1em;
+}
+
+.btn-text, .btn-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-loading {
+  color: var(--text-secondary);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
 /* BTC Chart Section */
 .btc-section {
   margin-top: 30px;
@@ -1408,7 +1473,222 @@ footer {
    }
 
    .ma7-toggle {
-     width: 100%;
-     justify-content: space-between;
-   }
+      width: 100%;
+      justify-content: space-between;
+    }
+}
+
+/* Date Exclusion Section Styles */
+.exclusion-section {
+  border: 2px solid var(--warning-color);
+  padding: 20px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(217, 119, 6, 0.05) 100%);
+}
+
+.exclusion-section h2 {
+  color: var(--warning-color);
+  border-bottom-color: var(--warning-color);
+}
+
+.exclusion-desc {
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  font-size: 0.95em;
+}
+
+.exclusion-controls {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.exclusion-date-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.exclusion-date-group label {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.95em;
+}
+
+.exclusion-date-group input {
+  padding: 10px 14px;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.95em;
+  font-family: inherit;
+  background-color: var(--bg-primary);
+  min-width: 180px;
+}
+
+.exclusion-date-group input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.exclusion-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-exclude, .btn-restore {
+  padding: 10px 16px;
+  border: 2px solid;
+  border-radius: 8px;
+  font-size: 0.95em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  font-family: inherit;
+  background: none;
+}
+
+.btn-exclude {
+  border-color: var(--error-color);
+  color: var(--error-color);
+}
+
+.btn-exclude:hover {
+  background-color: var(--error-color);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-restore {
+  border-color: var(--success-color);
+  color: var(--success-color);
+}
+
+.btn-restore:hover {
+  background-color: var(--success-color);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-icon {
+  font-size: 1.1em;
+}
+
+.excluded-list {
+  margin-top: 20px;
+  padding: 16px;
+  background-color: var(--bg-tertiary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.excluded-list h3 {
+  color: var(--warning-color);
+  margin-bottom: 16px;
+  font-size: 1.2em;
+  font-weight: 600;
+}
+
+.excluded-content {
+  display: grid;
+  gap: 12px;
+}
+
+.excluded-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: var(--bg-primary);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s;
+}
+
+.excluded-item:hover {
+  border-color: var(--warning-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.excluded-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.excluded-date {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.excluded-channel {
+  font-size: 0.9em;
+  color: var(--text-secondary);
+}
+
+.excluded-views {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+}
+
+.restore-btn {
+  padding: 6px 12px;
+  background-color: var(--success-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.restore-btn:hover {
+  background-color: #059669;
+  transform: translateY(-1px);
+}
+
+/* Chart styles for excluded dates */
+.excluded-point {
+  opacity: 0.3;
+  border-style: dashed !important;
+}
+
+.excluded-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9em;
+  color: var(--text-secondary);
+  margin-top: 10px;
+}
+
+.excluded-legend-box {
+  width: 20px;
+  height: 3px;
+  border: 2px dashed #999;
+  opacity: 0.3;
+}
+
+@media (max-width: 768px) {
+  .exclusion-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .exclusion-actions {
+    justify-content: center;
+  }
+  
+  .exclusion-date-group input {
+    min-width: 100%;
+  }
 }
