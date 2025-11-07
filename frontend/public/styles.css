@@ -935,9 +935,15 @@ footer {
   margin-top: 30px;
 }
 
+/* VSI Section */
+.vsi-section {
+  margin-top: 30px;
+}
+
 /* Market data sections */
 .btc-section,
-.fng-section {
+.fng-section,
+.vsi-section {
   background: var(--bg-primary);
   padding: 25px;
   border-radius: 12px;
@@ -945,17 +951,140 @@ footer {
 }
 
 .btc-section h2,
-.fng-section h2 {
+.fng-section h2,
+.vsi-section h2 {
   color: var(--text-primary);
   margin-bottom: 10px;
   font-size: 1.5rem;
 }
 
 .btc-section .section-description,
-.fng-section .section-description {
+.fng-section .section-description,
+.vsi-section .section-description {
   color: var(--text-secondary);
   margin-bottom: 15px;
   font-size: 0.95rem;
+}
+
+/* VSI Legend */
+.vsi-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+}
+
+.vsi-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  font-size: 13px;
+}
+
+.vsi-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.vsi-legend-item.extreme-disinterest .vsi-indicator {
+  background-color: #16a34a;
+}
+
+.vsi-legend-item.low-interest .vsi-indicator {
+  background-color: #4ade80;
+}
+
+.vsi-legend-item.normal .vsi-indicator {
+  background-color: #9ca3af;
+}
+
+.vsi-legend-item.high-interest .vsi-indicator {
+  background-color: #fb923c;
+}
+
+.vsi-legend-item.extreme-hype .vsi-indicator {
+  background-color: #dc2626;
+}
+
+/* VSI Current Metric */
+.vsi-current-metric {
+  margin-bottom: 20px;
+}
+
+.current-vsi-card {
+  background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-primary));
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.current-vsi-label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.current-vsi-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  line-height: 1;
+}
+
+.current-vsi-classification {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  display: inline-block;
+}
+
+.current-vsi-trend {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+/* VSI Classification Colors */
+.current-vsi-classification.extreme-disinterest {
+  background-color: #16a34a;
+  color: white;
+}
+
+.current-vsi-classification.low-interest {
+  background-color: #4ade80;
+  color: white;
+}
+
+.current-vsi-classification.normal {
+  background-color: #9ca3af;
+  color: white;
+}
+
+.current-vsi-classification.high-interest {
+  background-color: #fb923c;
+  color: white;
+}
+
+.current-vsi-classification.extreme-hype {
+  background-color: #dc2626;
+  color: white;
 }
 
 /* View Toggle Section */

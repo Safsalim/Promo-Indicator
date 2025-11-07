@@ -4,6 +4,7 @@ let viewsChart = null;
 let rsiChart = null;
 let btcChart = null;
 let fngChart = null;
+let vsiChart = null;
 let overlayChart = null;
 let allChannels = [];
 let currentMetrics = [];
@@ -11,6 +12,7 @@ let currentRsiData = {};
 let currentRsiPeriod = 14;
 let currentBtcData = [];
 let currentFngData = [];
+let currentVsiData = {};
 let currentViewMode = 'stacked';
 
 const CHART_COLORS = [
@@ -243,6 +245,7 @@ async function fetchMetrics() {
     
     currentMetrics = metricsResult.data || [];
     currentRsiData = metricsResult.rsi || {};
+    currentVsiData = metricsResult.vsi || {};
     currentBtcData = btcResult.data || [];
     currentFngData = fngResult.data || [];
     
@@ -253,6 +256,7 @@ async function fetchMetrics() {
       updateRsiChart(currentRsiData, channelIds);
       updateBtcChart(currentBtcData);
       updateFngChart(currentFngData);
+      updateVsiChart(currentVsiData, channelIds);
       updateSummaryStats(summaryResult.data, currentMetrics);
       document.getElementById('noDataMessage').style.display = 'none';
     }
@@ -287,6 +291,11 @@ function showNoData() {
   if (fngChart) {
     fngChart.destroy();
     fngChart = null;
+  }
+
+  if (vsiChart) {
+    vsiChart.destroy();
+    vsiChart = null;
   }
   
   resetSummaryStats();
@@ -1039,6 +1048,295 @@ function updateFngChart(fngData) {
   });
 }
 
+function updateVsiChart(vsiData, channelIds) {
+  if (!vsiData || Object.keys(vsiData).length === 0) {
+    if (vsiChart) {
+      vsiChart.destroy();
+      vsiChart = null;
+    }
+    // Clear current VSI display
+    document.getElementById('currentVsiValue').textContent = '-';
+    document.getElementById('currentVsiClassification').textContent = '-';
+    document.getElementById('currentVsiClassification').className = 'current-vsi-classification';
+    document.getElementById('currentVsiTrend').textContent = '-';
+    return;
+  }
+
+  const datasets = [];
+  let allDates = new Set();
+
+  channelIds.forEach((channelId, index) => {
+    const channelVsiData = vsiData[channelId];
+    if (!channelVsiData || channelVsiData.length === 0) {
+      return;
+    }
+
+    const channel = allChannels.find(c => c.id === parseInt(channelId));
+    const channelLabel = channel ? (channel.channel_name || channel.channel_handle) : `Channel ${channelId}`;
+    const color = CHART_COLORS[index % CHART_COLORS.length];
+
+    channelVsiData.forEach(item => allDates.add(item.date));
+
+    const dateMap = {};
+    channelVsiData.forEach(item => {
+      dateMap[item.date] = item.vsi;
+    });
+
+    const sortedDates = Array.from(allDates).sort();
+    const chartData = sortedDates.map(date => dateMap[date] !== undefined ? dateMap[date] : null);
+
+    datasets.push({
+      label: channelLabel,
+      data: chartData,
+      borderColor: color,
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      fill: false,
+      tension: 0.4,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      pointBackgroundColor: function(context) {
+        const value = context.parsed.y;
+        if (value === null || value === undefined) return '#9ca3af';
+        if (value <= 10) return '#16a34a';
+        if (value <= 30) return '#4ade80';
+        if (value <= 70) return '#9ca3af';
+        if (value <= 90) return '#fb923c';
+        return '#dc2626';
+      },
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
+      segment: {
+        borderColor: function(context) {
+          const value = context.p1?.parsed?.y;
+          if (value === null || value === undefined) return '#9ca3af';
+          if (value <= 10) return '#16a34a';
+          if (value <= 30) return '#4ade80';
+          if (value <= 70) return '#9ca3af';
+          if (value <= 90) return '#fb923c';
+          return '#dc2626';
+        }
+      },
+      spanGaps: true
+    });
+  });
+
+  const sortedDates = Array.from(allDates).sort();
+  const labels = sortedDates.map(date => formatDate(date));
+
+  if (vsiChart) {
+    vsiChart.destroy();
+  }
+
+  // Update current VSI display
+  updateCurrentVsiDisplay(vsiData, channelIds);
+
+  const ctx = document.getElementById('vsiChart').getContext('2d');
+  vsiChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 2.5,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            usePointStyle: true,
+            padding: 15,
+            font: {
+              size: 12,
+              weight: '500'
+            }
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          padding: 12,
+          titleFont: {
+            size: 14,
+            weight: 'bold'
+          },
+          bodyFont: {
+            size: 13
+          },
+          bodySpacing: 6,
+          callbacks: {
+            label: function(context) {
+              const value = context.parsed.y;
+              if (value === null || value === undefined) {
+                return `${context.dataset.label}: No Data`;
+              }
+              
+              const label = getVSILabel(value);
+              const signal = value <= 10 ? ' (Buy Signal)' : value >= 90 ? ' (Sell Signal)' : '';
+              return [
+                `${context.dataset.label}: ${value.toFixed(2)}`,
+                `Classification: ${label}${signal}`
+              ];
+            }
+          }
+        },
+        title: {
+          display: false
+        }
+      },
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: {
+            stepSize: 10,
+            callback: function(value) {
+              return value;
+            },
+            font: {
+              size: 11
+            }
+          },
+          grid: {
+            color: function(context) {
+              if (context.tick.value === 10 || context.tick.value === 30 || 
+                  context.tick.value === 70 || context.tick.value === 90) {
+                return 'rgba(0, 0, 0, 0.2)';
+              }
+              return 'rgba(0, 0, 0, 0.05)';
+            }
+          }
+        },
+        x: {
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45,
+            font: {
+              size: 10
+            }
+          },
+          grid: {
+            display: false
+          }
+        }
+      }
+    }
+  });
+}
+
+function updateCurrentVsiDisplay(vsiData, channelIds) {
+  // Get the most recent VSI value from the first channel
+  const channelId = channelIds[0];
+  const channelVsiData = vsiData[channelId];
+  
+  if (!channelVsiData || channelVsiData.length === 0) {
+    document.getElementById('currentVsiValue').textContent = '-';
+    document.getElementById('currentVsiClassification').textContent = '-';
+    document.getElementById('currentVsiClassification').className = 'current-vsi-classification';
+    document.getElementById('currentVsiTrend').textContent = '-';
+    return;
+  }
+
+  // Sort by date and get most recent value
+  const sortedData = channelVsiData
+    .filter(item => item.vsi !== null && item.vsi !== undefined)
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  if (sortedData.length === 0) {
+    document.getElementById('currentVsiValue').textContent = '-';
+    document.getElementById('currentVsiClassification').textContent = '-';
+    document.getElementById('currentVsiClassification').className = 'current-vsi-classification';
+    document.getElementById('currentVsiTrend').textContent = '-';
+    return;
+  }
+
+  const currentVsi = sortedData[0].vsi;
+  const previousVsi = sortedData[1]?.vsi;
+
+  // Update current value
+  document.getElementById('currentVsiValue').textContent = currentVsi.toFixed(2);
+
+  // Update classification
+  const classification = getVSILabel(currentVsi);
+  const classificationClass = getVSIClassification(currentVsi);
+  const classificationEl = document.getElementById('currentVsiClassification');
+  classificationEl.textContent = classification;
+  classificationEl.className = `current-vsi-classification ${classificationClass}`;
+
+  // Update trend
+  const trendEl = document.getElementById('currentVsiTrend');
+  if (previousVsi !== null && previousVsi !== undefined) {
+    const change = currentVsi - previousVsi;
+    const changePercent = previousVsi > 0 ? (change / previousVsi * 100).toFixed(1) : 0;
+    const arrow = change > 0 ? '↑' : change < 0 ? '↓' : '→';
+    const color = change > 0 ? '#dc2626' : change < 0 ? '#16a34a' : '#9ca3af';
+    trendEl.innerHTML = `<span style="color: ${color}">${arrow} ${Math.abs(changePercent)}%</span>`;
+  } else {
+    trendEl.textContent = 'No trend data';
+  }
+}
+
+// Helper functions for VSI categorization
+function getVSILabel(vsi) {
+  if (vsi === null || vsi === undefined) {
+    return 'No Data';
+  }
+  
+  if (vsi <= 10) {
+    return 'Extreme Disinterest';
+  } else if (vsi <= 30) {
+    return 'Low Interest';
+  } else if (vsi <= 70) {
+    return 'Normal';
+  } else if (vsi <= 90) {
+    return 'High Interest';
+  } else {
+    return 'Extreme Hype';
+  }
+}
+
+function getVSIColor(vsi) {
+  if (vsi === null || vsi === undefined) {
+    return '#9ca3af'; // Gray
+  }
+  
+  if (vsi <= 10) {
+    return '#16a34a'; // Dark Green
+  } else if (vsi <= 30) {
+    return '#4ade80'; // Light Green
+  } else if (vsi <= 70) {
+    return '#9ca3af'; // Gray
+  } else if (vsi <= 90) {
+    return '#fb923c'; // Orange
+  } else {
+    return '#dc2626'; // Dark Red
+  }
+}
+
+function getVSIClassification(vsi) {
+  if (vsi === null || vsi === undefined) {
+    return 'normal';
+  }
+  
+  if (vsi <= 10) {
+    return 'extreme-disinterest';
+  } else if (vsi <= 30) {
+    return 'low-interest';
+  } else if (vsi <= 70) {
+    return 'normal';
+  } else if (vsi <= 90) {
+    return 'high-interest';
+  } else {
+    return 'extreme-hype';
+  }
+}
+
 
 async function collectHistoricalData() {
   const startDateInput = document.getElementById('collectStartDate');
@@ -1318,6 +1616,12 @@ function setupEventListeners() {
     const channelIds = getSelectedChannelIds();
     if (currentRsiData && Object.keys(currentRsiData).length > 0) {
       updateRsiChart(currentRsiData, channelIds);
+    }
+  });
+
+  document.getElementById('showVsiOverlay').addEventListener('change', () => {
+    if (currentViewMode === 'overlay') {
+      updateOverlayChart();
     }
   });
 

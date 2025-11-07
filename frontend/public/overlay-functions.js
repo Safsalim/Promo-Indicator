@@ -10,6 +10,7 @@ function toggleView(viewMode) {
   const rsiSection = document.querySelector('.rsi-section');
   const btcSection = document.querySelector('.btc-section');
   const fngSection = document.querySelector('.fng-section');
+  const vsiSection = document.querySelector('.vsi-section');
   
   if (viewMode === 'overlay') {
     stackedBtn.classList.remove('active');
@@ -19,8 +20,9 @@ function toggleView(viewMode) {
     rsiSection.style.display = 'none';
     btcSection.style.display = 'none';
     fngSection.style.display = 'none';
+    vsiSection.style.display = 'none';
     
-    if (currentMetrics.length > 0 || currentBtcData.length > 0 || currentFngData.length > 0) {
+    if (currentMetrics.length > 0 || currentBtcData.length > 0 || currentFngData.length > 0 || Object.keys(currentVsiData).length > 0) {
       updateOverlayChart();
     }
   } else {
@@ -31,6 +33,7 @@ function toggleView(viewMode) {
     rsiSection.style.display = 'block';
     btcSection.style.display = 'block';
     fngSection.style.display = 'block';
+    vsiSection.style.display = 'block';
   }
 }
 
@@ -44,12 +47,13 @@ function normalizeToScale(data, min, max) {
 
 function updateOverlayChart() {
   const showRsi = document.getElementById('showRsiOverlay').checked;
+  const showVsi = document.getElementById('showVsiOverlay').checked;
   const normalize = document.getElementById('normalizeOverlay').checked;
   
   const allDates = new Set();
   const datasets = [];
   
-  if (currentMetrics.length === 0 && currentBtcData.length === 0 && currentFngData.length === 0) {
+  if (currentMetrics.length === 0 && currentBtcData.length === 0 && currentFngData.length === 0 && Object.keys(currentVsiData).length === 0) {
     if (overlayChart) {
       overlayChart.destroy();
       overlayChart = null;
@@ -84,16 +88,33 @@ function updateOverlayChart() {
     });
   }
   
+  const vsiDateMap = {};
+  if (Object.keys(currentVsiData).length > 0) {
+    // Get VSI data from first channel for overlay
+    const firstChannelId = Object.keys(currentVsiData)[0];
+    const channelVsiData = currentVsiData[firstChannelId];
+    if (channelVsiData) {
+      channelVsiData.forEach(vsi => {
+        if (vsi.vsi !== null && vsi.vsi !== undefined) {
+          allDates.add(vsi.date);
+          vsiDateMap[vsi.date] = vsi.vsi;
+        }
+      });
+    }
+  }
+  
   const sortedDates = Array.from(allDates).sort();
   const labels = sortedDates.map(date => formatDate(date));
   
   const viewsData = sortedDates.map(date => viewsDateMap[date] || null);
   const btcData = sortedDates.map(date => btcDateMap[date] || null);
   const fngData = sortedDates.map(date => fngDateMap[date] || null);
+  const vsiData = sortedDates.map(date => vsiDateMap[date] || null);
   
   let processedViewsData = viewsData;
   let processedBtcData = btcData;
   let processedFngData = fngData;
+  let processedVsiData = vsiData;
   
   if (normalize) {
     const viewsMin = Math.min(...viewsData.filter(v => v !== null));
@@ -102,10 +123,13 @@ function updateOverlayChart() {
     const btcMax = Math.max(...btcData.filter(v => v !== null));
     const fngMin = Math.min(...fngData.filter(v => v !== null));
     const fngMax = Math.max(...fngData.filter(v => v !== null));
+    const vsiMin = Math.min(...vsiData.filter(v => v !== null));
+    const vsiMax = Math.max(...vsiData.filter(v => v !== null));
     
     processedViewsData = normalizeToScale(viewsData, viewsMin, viewsMax);
     processedBtcData = normalizeToScale(btcData, btcMin, btcMax);
     processedFngData = normalizeToScale(fngData, fngMin, fngMax);
+    processedVsiData = normalizeToScale(vsiData, vsiMin, vsiMax);
   }
   
   if (currentMetrics.length > 0) {
@@ -151,6 +175,37 @@ function updateOverlayChart() {
           if (value <= 49) return '#f97316';
           if (value <= 74) return '#fbbf24';
           return '#10b981';
+        }
+      }
+    });
+  }
+  
+  if (showVsi && Object.keys(currentVsiData).length > 0) {
+    datasets.push({
+      label: 'VSI',
+      data: processedVsiData,
+      borderColor: '#8B5CF6',
+      backgroundColor: 'rgba(139, 92, 246, 0.1)',
+      borderWidth: 2,
+      fill: false,
+      tension: 0.4,
+      pointRadius: 3,
+      pointHoverRadius: 6,
+      pointBackgroundColor: '#8B5CF6',
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
+      yAxisID: normalize ? 'y-normalized' : 'y-vsi',
+      spanGaps: true,
+      segment: {
+        borderColor: function(context) {
+          if (normalize) return '#8B5CF6';
+          const value = context.p1?.parsed?.y;
+          if (value === null || value === undefined) return '#9ca3af';
+          if (value <= 10) return '#16a34a';
+          if (value <= 30) return '#4ade80';
+          if (value <= 70) return '#9ca3af';
+          if (value <= 90) return '#fb923c';
+          return '#dc2626';
         }
       }
     });
@@ -296,6 +351,31 @@ function updateOverlayChart() {
           size: 11
         },
         color: '#F59E0B'
+      },
+      grid: {
+        drawOnChartArea: false
+      }
+    },
+    'y-vsi': {
+      position: 'left',
+      offset: true,
+      min: 0,
+      max: 100,
+      title: {
+        display: true,
+        text: 'VSI',
+        color: '#8B5CF6',
+        font: {
+          size: 12,
+          weight: 'bold'
+        }
+      },
+      ticks: {
+        stepSize: 10,
+        font: {
+          size: 11
+        },
+        color: '#8B5CF6'
       },
       grid: {
         drawOnChartArea: false
