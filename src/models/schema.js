@@ -51,6 +51,7 @@ function initializeSchema() {
       total_live_stream_views INTEGER DEFAULT 0,
       live_stream_count INTEGER DEFAULT 0,
       peak_video_id TEXT,
+      is_excluded INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (channel_id) REFERENCES channels(id),
       UNIQUE(channel_id, date)

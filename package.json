@@ -14,6 +14,7 @@
     "init-db": "node src/scripts/initDatabase.js",
     "create-db": "node src/scripts/createDatabase.js",
     "migrate:channels": "node src/scripts/migrateChannelsAndMetrics.js",
+    "migrate:excluded-column": "node src/scripts/addExcludedColumn.js",
     "seed:channels": "node src/scripts/seedChannels.js",
     "test:models": "node src/scripts/testModels.js",
     "collect-metrics": "node src/scripts/collectLiveStreamMetrics.js",
