@@ -4,8 +4,8 @@ class LiveStreamMetrics {
   static create(metricsData) {
     const db = getDatabase();
     const stmt = db.prepare(`
-      INSERT INTO live_stream_metrics (channel_id, date, total_live_stream_views, live_stream_count, peak_video_id, is_excluded)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO live_stream_metrics (channel_id, date, total_live_stream_views, live_stream_count, peak_video_id)
+      VALUES (?, ?, ?, ?, ?)
     `);
     
     return stmt.run(
@@ -13,22 +13,20 @@ class LiveStreamMetrics {
       metricsData.date,
       metricsData.total_live_stream_views || 0,
       metricsData.live_stream_count || 0,
-      metricsData.peak_video_id || null,
-      metricsData.is_excluded || 0
+      metricsData.peak_video_id || null
     );
   }
 
   static createOrUpdate(metricsData) {
     const db = getDatabase();
     const stmt = db.prepare(`
-      INSERT INTO live_stream_metrics (channel_id, date, total_live_stream_views, live_stream_count, peak_video_id, is_excluded)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO live_stream_metrics (channel_id, date, total_live_stream_views, live_stream_count, peak_video_id)
+      VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(channel_id, date) 
       DO UPDATE SET 
         total_live_stream_views = excluded.total_live_stream_views,
         live_stream_count = excluded.live_stream_count,
         peak_video_id = excluded.peak_video_id,
-        is_excluded = excluded.is_excluded,
         created_at = CURRENT_TIMESTAMP
     `);
     
@@ -37,8 +35,7 @@ class LiveStreamMetrics {
       metricsData.date,
       metricsData.total_live_stream_views || 0,
       metricsData.live_stream_count || 0,
-      metricsData.peak_video_id || null,
-      metricsData.is_excluded || 0
+      metricsData.peak_video_id || null
     );
   }
 
@@ -56,6 +53,15 @@ class LiveStreamMetrics {
       ORDER BY date DESC
     `);
     return stmt.all(channelId);
+  }
+
+  static findByChannelIdAndDate(channelId, date) {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+      SELECT * FROM live_stream_metrics 
+      WHERE channel_id = ? AND date = ?
+    `);
+    return stmt.get(channelId, date);
   }
 
   static findByChannelIdAndDateRange(channelId, startDate, endDate) {
@@ -187,77 +193,6 @@ class LiveStreamMetrics {
       WHERE channel_id = ?
     `);
     return stmt.get(channelId);
-  }
-
-  static excludeDay(channelId, date) {
-    const db = getDatabase();
-    const stmt = db.prepare(`
-      UPDATE live_stream_metrics 
-      SET is_excluded = 1 
-      WHERE channel_id = ? AND date = ?
-    `);
-    return stmt.run(channelId, date);
-  }
-
-  static restoreDay(channelId, date) {
-    const db = getDatabase();
-    const stmt = db.prepare(`
-      UPDATE live_stream_metrics 
-      SET is_excluded = 0 
-      WHERE channel_id = ? AND date = ?
-    `);
-    return stmt.run(channelId, date);
-  }
-
-  static excludeById(id) {
-    const db = getDatabase();
-    const stmt = db.prepare(`
-      UPDATE live_stream_metrics 
-      SET is_excluded = 1 
-      WHERE id = ?
-    `);
-    return stmt.run(id);
-  }
-
-  static restoreById(id) {
-    const db = getDatabase();
-    const stmt = db.prepare(`
-      UPDATE live_stream_metrics 
-      SET is_excluded = 0 
-      WHERE id = ?
-    `);
-    return stmt.run(id);
-  }
-
-  static findExcluded() {
-    const db = getDatabase();
-    const stmt = db.prepare(`
-      SELECT lsm.*, c.channel_handle, c.channel_name
-      FROM live_stream_metrics lsm
-      JOIN channels c ON lsm.channel_id = c.id
-      WHERE lsm.is_excluded = 1
-      ORDER BY lsm.date DESC
-    `);
-    return stmt.all();
-  }
-
-  static findExcludedByChannelId(channelId) {
-    const db = getDatabase();
-    const stmt = db.prepare(`
-      SELECT * FROM live_stream_metrics 
-      WHERE channel_id = ? AND is_excluded = 1
-      ORDER BY date DESC
-    `);
-    return stmt.all(channelId);
-  }
-
-  static findByChannelIdAndDate(channelId, date) {
-    const db = getDatabase();
-    const stmt = db.prepare(`
-      SELECT * FROM live_stream_metrics 
-      WHERE channel_id = ? AND date = ?
-    `);
-    return stmt.get(channelId, date);
   }
 }
 
