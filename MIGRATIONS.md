@@ -92,6 +92,38 @@ npm run migrate:channels
 
 ---
 
+### Migration 003: Add is_excluded Column to Live Stream Metrics
+**Date**: 2024  
+**Script**: `src/scripts/addExcludedColumn.js`  
+**Status**: ✅ Completed
+
+**Purpose**: Add support for excluding anomalous data days from calculations in the live stream metrics table.
+
+**Schema Changes:**
+```sql
+ALTER TABLE live_stream_metrics ADD COLUMN is_excluded INTEGER DEFAULT 0;
+```
+
+**Fields Added:**
+- `is_excluded` - Boolean flag (0=included, 1=excluded) for excluding anomalous days from calculations
+
+**How to Apply:**
+```bash
+npm run migrate:excluded-column
+```
+
+**Verification:**
+```bash
+# Check if column exists
+sqlite3 database/promo-indicator.db "PRAGMA table_info(live_stream_metrics);"
+
+# Should show is_excluded column in the output
+```
+
+**Rollback**: Not applicable - column addition is permanent, but can be set to 0 to include all data
+
+---
+
 ## How to Run Migrations
 
 ### Fresh Database Setup
@@ -104,6 +136,7 @@ npm run init-db
 For existing databases, run specific migrations:
 ```bash
 npm run migrate:channels
+npm run migrate:excluded-column
 ```
 
 ### Verify Migration
@@ -236,7 +269,7 @@ migrate();
 
 ## Schema Versioning
 
-Current schema version: **2**
+Current schema version: **3**
 
 Track schema version in your application:
 ```javascript
