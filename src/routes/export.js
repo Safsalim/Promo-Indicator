@@ -9,6 +9,7 @@ function formatCSV(data, channelInfo) {
     'youtube_views',
     'youtube_rsi',
     'live_stream_count',
+    'excluded',
     'fear_greed_value',
     'fear_greed_classification',
     'btc_price_close',
@@ -36,6 +37,7 @@ function formatCSV(data, channelInfo) {
       row.youtube_views !== null && row.youtube_views !== undefined ? row.youtube_views : '',
       row.youtube_rsi !== null && row.youtube_rsi !== undefined ? row.youtube_rsi.toFixed(2) : '',
       row.live_stream_count !== null && row.live_stream_count !== undefined ? row.live_stream_count : '',
+      row.is_excluded ? 'yes' : 'no',
       row.fear_greed_value !== null && row.fear_greed_value !== undefined ? row.fear_greed_value : '',
       escapeCsvValue(row.fear_greed_classification || ''),
       row.btc_price_close !== null && row.btc_price_close !== undefined ? row.btc_price_close.toFixed(2) : '',
@@ -82,7 +84,8 @@ function formatJSON(data, channelInfo, filters) {
       entry.youtube = {
         views: row.youtube_views !== null && row.youtube_views !== undefined ? row.youtube_views : null,
         rsi: row.youtube_rsi !== null && row.youtube_rsi !== undefined ? parseFloat(row.youtube_rsi.toFixed(2)) : null,
-        stream_count: row.live_stream_count !== null && row.live_stream_count !== undefined ? row.live_stream_count : null
+        stream_count: row.live_stream_count !== null && row.live_stream_count !== undefined ? row.live_stream_count : null,
+        excluded: row.is_excluded ? true : false
       };
 
       entry.fear_greed = {
@@ -113,7 +116,7 @@ function isValidDate(dateString) {
 
 router.get('/export/data', (req, res) => {
   try {
-    const { format = 'csv', start_date, end_date, channels, rsi_period = '14' } = req.query;
+    const { format = 'csv', start_date, end_date, channels, rsi_period = '14', include_excluded } = req.query;
 
     if (!['csv', 'json'].includes(format.toLowerCase())) {
       return res.status(400).json({
@@ -211,7 +214,7 @@ router.get('/export/data', (req, res) => {
     if (channelIdsArray && channelIdsArray.length > 0) {
       channelIdsArray.forEach(channelId => {
         let metricsQuery = `
-          SELECT lsm.date, lsm.total_live_stream_views, lsm.live_stream_count, 
+          SELECT lsm.date, lsm.total_live_stream_views, lsm.live_stream_count, lsm.is_excluded,
                  c.channel_handle, c.channel_name
           FROM live_stream_metrics lsm
           JOIN channels c ON lsm.channel_id = c.id
@@ -227,6 +230,11 @@ router.get('/export/data', (req, res) => {
         if (end_date) {
           metricsQuery += ' AND lsm.date <= ?';
           metricsParams.push(end_date);
+        }
+
+        // Filter out excluded days by default, unless explicitly requested
+        if (!include_excluded || include_excluded !== 'true') {
+          metricsQuery += ' AND lsm.is_excluded = 0';
         }
 
         metricsQuery += ' ORDER BY lsm.date ASC';
@@ -248,6 +256,7 @@ router.get('/export/data', (req, res) => {
             stream_count: m.live_stream_count,
             channel_handle: m.channel_handle,
             channel_name: m.channel_name,
+            is_excluded: m.is_excluded || 0,
             rsi: rsiData[m.date] || null
           };
         });
@@ -255,12 +264,13 @@ router.get('/export/data', (req, res) => {
     } else {
       let metricsQuery = `
         SELECT lsm.date, SUM(lsm.total_live_stream_views) as total_views, 
-               SUM(lsm.live_stream_count) as total_streams
+               SUM(lsm.live_stream_count) as total_streams,
+               MAX(lsm.is_excluded) as is_excluded
         FROM live_stream_metrics lsm
       `;
       const metricsParams = [];
 
-      if (start_date || end_date) {
+      if (start_date || end_date || (!include_excluded || include_excluded !== 'true')) {
         metricsQuery += ' WHERE 1=1';
         if (start_date) {
           metricsQuery += ' AND lsm.date >= ?';
@@ -269,6 +279,10 @@ router.get('/export/data', (req, res) => {
         if (end_date) {
           metricsQuery += ' AND lsm.date <= ?';
           metricsParams.push(end_date);
+        }
+        // Filter out excluded days by default, unless explicitly requested
+        if (!include_excluded || include_excluded !== 'true') {
+          metricsQuery += ' AND lsm.is_excluded = 0';
         }
       }
 
@@ -288,6 +302,7 @@ router.get('/export/data', (req, res) => {
         youtubeMetrics[m.date] = {
           views: m.total_views,
           stream_count: m.total_streams,
+          is_excluded: m.is_excluded || 0,
           rsi: rsiData[m.date] || null
         };
       });

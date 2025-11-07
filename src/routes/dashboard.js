@@ -115,7 +115,7 @@ router.post('/channels', async (req, res) => {
 // GET /api/metrics - Query metrics with filters
 router.get('/metrics', (req, res) => {
   try {
-    const { channel_ids, start_date, end_date, limit, rsi_period } = req.query;
+    const { channel_ids, start_date, end_date, limit, rsi_period, include_excluded } = req.query;
 
     // Input validation
     let channelIdsArray = null;
@@ -209,6 +209,11 @@ router.get('/metrics', (req, res) => {
       params.push(end_date);
     }
 
+    // Filter out excluded days by default, unless explicitly requested
+    if (!include_excluded || include_excluded !== 'true') {
+      query += ` AND lsm.is_excluded = 0`;
+    }
+
     query += ` ORDER BY lsm.date ASC, c.channel_name ASC`;
 
     if (limitValue) {
@@ -272,7 +277,8 @@ router.get('/metrics', (req, res) => {
         start_date: start_date || null,
         end_date: end_date || null,
         limit: limitValue || null,
-        rsi_period: rsiPeriod
+        rsi_period: rsiPeriod,
+        include_excluded: include_excluded === 'true'
       }
     });
   } catch (error) {
@@ -789,6 +795,143 @@ router.post('/collect-metrics', async (req, res) => {
       success: false,
       error: 'Failed to collect metrics',
       message: error.message
+    });
+  }
+});
+
+// POST /api/metrics/:id/exclude - Mark a day as excluded
+router.post('/metrics/:id/exclude', (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate ID
+    const metricId = parseInt(id, 10);
+    if (isNaN(metricId) || metricId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid metric ID'
+      });
+    }
+
+    // Check if the metric exists
+    const metric = LiveStreamMetrics.findById(metricId);
+    if (!metric) {
+      return res.status(404).json({
+        success: false,
+        error: 'Metric not found'
+      });
+    }
+
+    // Mark as excluded
+    const result = LiveStreamMetrics.excludeById(metricId);
+    
+    if (result.changes === 0) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to exclude metric'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Metric excluded successfully',
+      data: {
+        id: metricId,
+        date: metric.date,
+        channel_id: metric.channel_id,
+        total_live_stream_views: metric.total_live_stream_views
+      }
+    });
+  } catch (error) {
+    console.error('Error excluding metric:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to exclude metric'
+    });
+  }
+});
+
+// POST /api/metrics/:id/restore - Restore an excluded day
+router.post('/metrics/:id/restore', (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate ID
+    const metricId = parseInt(id, 10);
+    if (isNaN(metricId) || metricId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid metric ID'
+      });
+    }
+
+    // Check if the metric exists
+    const metric = LiveStreamMetrics.findById(metricId);
+    if (!metric) {
+      return res.status(404).json({
+        success: false,
+        error: 'Metric not found'
+      });
+    }
+
+    // Restore (unexclude)
+    const result = LiveStreamMetrics.restoreById(metricId);
+    
+    if (result.changes === 0) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to restore metric'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Metric restored successfully',
+      data: {
+        id: metricId,
+        date: metric.date,
+        channel_id: metric.channel_id,
+        total_live_stream_views: metric.total_live_stream_views
+      }
+    });
+  } catch (error) {
+    console.error('Error restoring metric:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to restore metric'
+    });
+  }
+});
+
+// GET /api/metrics/excluded - List all excluded days
+router.get('/metrics/excluded', (req, res) => {
+  try {
+    const { channel_id } = req.query;
+    
+    let excludedMetrics;
+    if (channel_id) {
+      const channelId = parseInt(channel_id, 10);
+      if (isNaN(channelId) || channelId <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid channel_id'
+        });
+      }
+      excludedMetrics = LiveStreamMetrics.findExcludedByChannelId(channelId);
+    } else {
+      excludedMetrics = LiveStreamMetrics.findExcluded();
+    }
+
+    res.json({
+      success: true,
+      data: excludedMetrics,
+      count: excludedMetrics.length
+    });
+  } catch (error) {
+    console.error('Error fetching excluded metrics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch excluded metrics'
     });
   }
 });
