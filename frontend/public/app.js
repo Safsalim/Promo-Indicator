@@ -215,11 +215,13 @@ async function fetchMetrics() {
   document.getElementById('noDataMessage').style.display = 'none';
   
   try {
+    const showExcluded = document.getElementById('showExcludedToggle').checked;
     const params = new URLSearchParams({
       channel_ids: channelIds.join(','),
       start_date: startDate,
       end_date: endDate,
-      rsi_period: currentRsiPeriod
+      rsi_period: currentRsiPeriod,
+      include_excluded: showExcluded
     });
     
     const marketParams = new URLSearchParams({
@@ -260,6 +262,9 @@ async function fetchMetrics() {
       updateSummaryStats(summaryResult.data, currentMetrics);
       document.getElementById('noDataMessage').style.display = 'none';
     }
+    
+    // Fetch excluded days after metrics are loaded
+    await fetchExcludedDays();
     
   } catch (error) {
     console.error('Error fetching metrics:', error);
@@ -441,7 +446,7 @@ function updateChart(metrics) {
               }
               label += formatNumber(context.parsed.y) + ' peak views';
               
-              // Find the metric data to check stream count
+              // Find the metric data to check stream count and get ID
               const dateIndex = context.dataIndex;
               const channelLabel = context.dataset.label;
               const metric = currentMetrics.find(m => 
@@ -449,18 +454,109 @@ function updateChart(metrics) {
                 allDates[dateIndex] === m.date
               );
               
+              const result = [label];
+              
               if (metric && metric.live_stream_count > 1) {
-                return [
-                  label,
-                  `(${metric.live_stream_count} streams on this day)`
-                ];
+                result.push(`(${metric.live_stream_count} streams on this day)`);
               }
               
-              return label;
+              // Add exclude button if not excluded and metric exists
+              if (metric && !metric.is_excluded && !context.dataset.label.includes('7d MA')) {
+                result.push('');
+                result.push('Click to exclude this data point');
+              }
+              
+              return result;
             },
             title: function(context) {
-              return formatDate(allDates[context[0].dataIndex]);
+              const dateIndex = context[0].dataIndex;
+              const date = allDates[dateIndex];
+              const channelLabel = context[0].dataset.label;
+              const metric = currentMetrics.find(m => 
+                (m.channel_name || m.channel_handle) === channelLabel && 
+                date === m.date
+              );
+              
+              if (metric && metric.is_excluded) {
+                return formatDate(date) + ' (EXCLUDED)';
+              }
+              return formatDate(date);
             }
+          },
+          external: function(context) {
+            // Tooltip Element
+            let tooltipEl = document.getElementById('chartjs-tooltip');
+
+            if (!tooltipEl) {
+              tooltipEl = document.createElement('div');
+              tooltipEl.id = 'chartjs-tooltip';
+              tooltipEl.innerHTML = '<table></table>';
+              document.body.appendChild(tooltipEl);
+            }
+
+            // Hide if no tooltip
+            const tooltipModel = context.tooltip;
+            if (tooltipModel.opacity === 0) {
+              tooltipEl.style.opacity = 0;
+              return;
+            }
+
+            // Set Text
+            if (tooltipModel.body) {
+              const titleLines = tooltipModel.title || [];
+              const bodyLines = tooltipModel.body.map(b => b.lines);
+
+              let innerHtml = '<thead>';
+
+              titleLines.forEach(function(title) {
+                innerHtml += '<tr><th>' + title + '</th></tr>';
+              });
+              innerHtml += '</thead><tbody>';
+
+              bodyLines.forEach(function(body, i) {
+                const colors = tooltipModel.labelColors[i];
+                const span = '<span style="background:' + colors.backgroundColor + ';"></span>';
+                
+                if (body.includes('Click to exclude')) {
+                  const dateIndex = context.tooltip.dataPoints[0].dataIndex;
+                  const channelLabel = context.tooltip.dataPoints[0].dataset.label;
+                  const metric = currentMetrics.find(m => 
+                    (m.channel_name || m.channel_handle) === channelLabel && 
+                    allDates[dateIndex] === m.date
+                  );
+                  
+                  if (metric) {
+                    innerHtml += '<tr><td>' + body[0] + '</td></tr>';
+                    if (body[1]) {
+                      innerHtml += '<tr><td>' + body[1] + '</td></tr>';
+                    }
+                    innerHtml += '<tr><td><button class="btn-exclude" onclick="excludeDay(' + metric.id + ')">Exclude Day</button></td></tr>';
+                  }
+                } else {
+                  innerHtml += '<tr><td>' + span + ' ' + body + '</td></tr>';
+                }
+              });
+              innerHtml += '</tbody>';
+
+              const tableRoot = tooltipEl.querySelector('table');
+              tableRoot.innerHTML = innerHtml;
+            }
+
+            const position = context.chart.canvas.getBoundingClientRect();
+
+            // Display, position, and set styles for font
+            tooltipEl.style.opacity = 1;
+            tooltipEl.style.position = 'absolute';
+            tooltipEl.style.left = position.left + window.pageXOffset + tooltipModel.caretX + 'px';
+            tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
+            tooltipEl.style.fontFamily = tooltipModel._bodyFontFamily;
+            tooltipEl.style.fontSize = tooltipModel.bodyFontSize + 'px';
+            tooltipEl.style.fontStyle = tooltipModel._bodyFontStyle;
+            tooltipEl.style.padding = tooltipModel.yPadding + 'px ' + tooltipModel.xPadding + 'px';
+            tooltipEl.style.pointerEvents = 'auto';
+            tooltipEl.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+            tooltipEl.style.color = 'white';
+            tooltipEl.style.borderRadius = '6px';
           }
         },
         title: {
@@ -1631,6 +1727,13 @@ function setupEventListeners() {
     }
   });
 
+  document.getElementById('showExcludedToggle').addEventListener('change', () => {
+    const channelIds = getSelectedChannelIds();
+    if (channelIds.length > 0) {
+      fetchMetrics();
+    }
+  });
+
   document.getElementById('stackedViewBtn').addEventListener('click', () => {
     toggleView('stacked');
   });
@@ -1709,12 +1812,14 @@ async function exportData(format) {
       return;
     }
     
+    const showExcluded = document.getElementById('showExcludedToggle').checked;
     const params = new URLSearchParams({
       format: format,
       start_date: startDate,
       end_date: endDate,
       channels: selectedChannels.join(','),
-      rsi_period: currentRsiPeriod
+      rsi_period: currentRsiPeriod,
+      include_excluded: showExcluded
     });
     
     const exportUrl = `${API_BASE_URL}/export/data?${params.toString()}`;
@@ -1829,6 +1934,124 @@ async function init() {
   if (allChannels.length > 0) {
     document.getElementById('noDataMessage').style.display = 'block';
   }
+}
+
+// Excluded days functionality
+let currentExcludedDays = [];
+
+async function fetchExcludedDays() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/metrics/excluded`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch excluded days');
+    }
+    
+    const result = await response.json();
+    currentExcludedDays = result.data || [];
+    updateExcludedDaysUI();
+  } catch (error) {
+    console.error('Error fetching excluded days:', error);
+  }
+}
+
+function updateExcludedDaysUI() {
+  const section = document.querySelector('.excluded-days-section');
+  const countEl = document.getElementById('excludedCount');
+  const listEl = document.getElementById('excludedDaysList');
+  
+  countEl.textContent = currentExcludedDays.length;
+  
+  if (currentExcludedDays.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  
+  section.style.display = 'block';
+  
+  listEl.innerHTML = currentExcludedDays.map(day => `
+    <div class="excluded-day-item">
+      <div class="excluded-day-info">
+        <div class="excluded-day-date">${formatDate(day.date)}</div>
+        <div class="excluded-day-details">
+          ${day.channel_name} • ${formatNumber(day.total_live_stream_views)} views
+        </div>
+      </div>
+      <div class="excluded-day-actions">
+        <button class="btn-restore" onclick="restoreExcludedDay(${day.id})">
+          Restore
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function excludeDay(metricId) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/metrics/${metricId}/exclude`, {
+      method: 'POST'
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to exclude day');
+    }
+    
+    const result = await response.json();
+    showFeedback('addChannelFeedback', 'Day excluded successfully', 'success');
+    
+    // Refresh data
+    await fetchExcludedDays();
+    await fetchMetrics();
+  } catch (error) {
+    console.error('Error excluding day:', error);
+    showFeedback('addChannelFeedback', 'Failed to exclude day', 'error');
+  }
+}
+
+async function restoreExcludedDay(metricId) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/metrics/${metricId}/restore`, {
+      method: 'POST'
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to restore day');
+    }
+    
+    const result = await response.json();
+    showFeedback('addChannelFeedback', 'Day restored successfully', 'success');
+    
+    // Refresh data
+    await fetchExcludedDays();
+    await fetchMetrics();
+  } catch (error) {
+    console.error('Error restoring day:', error);
+    showFeedback('addChannelFeedback', 'Failed to restore day', 'error');
+  }
+}
+
+// Add exclude button to chart tooltips
+function addExcludeButtonToChart(chart, metric) {
+  const canvas = chart.canvas;
+  const excludeBtn = document.createElement('button');
+  excludeBtn.className = 'btn-exclude';
+  excludeBtn.textContent = 'Exclude Day';
+  excludeBtn.onclick = () => excludeDay(metric.id);
+  
+  // Position the button near the chart point
+  const rect = canvas.getBoundingClientRect();
+  excludeBtn.style.position = 'absolute';
+  excludeBtn.style.top = `${rect.top + 10}px`;
+  excludeBtn.style.left = `${rect.right - 100}px`;
+  excludeBtn.style.zIndex = '1000';
+  
+  document.body.appendChild(excludeBtn);
+  
+  // Remove button after 3 seconds
+  setTimeout(() => {
+    if (excludeBtn.parentNode) {
+      excludeBtn.parentNode.removeChild(excludeBtn);
+    }
+  }, 3000);
 }
 
 document.addEventListener('DOMContentLoaded', init);
