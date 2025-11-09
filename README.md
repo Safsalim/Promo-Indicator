@@ -19,6 +19,12 @@ YouTube promotional analytics and monitoring dashboard for tracking video perfor
   - Optional RSI overlay for sentiment correlation analysis
   - Normalization feature for percentage-based comparison
   - Interactive tooltips showing all metrics at once
+- **Daily VSI Discord Reports** - Automated Discord webhook delivery
+  - Scheduled daily reports at 8 AM UTC
+  - Rich embeds with VSI metrics and trend analysis
+  - 30-day chart visualization with peak views overlay
+  - Color-coded sentiment indicators
+  - See [DISCORD_VSI_REPORTS.md](./DISCORD_VSI_REPORTS.md) for details
 
 ## Tech Stack
 
@@ -28,6 +34,9 @@ YouTube promotional analytics and monitoring dashboard for tracking video perfor
 - **better-sqlite3** - SQLite database driver (synchronous, high-performance)
 - **googleapis** - YouTube Data API v3 client
 - **dotenv** - Environment variable management
+- **node-cron** - Task scheduler for automated reports
+- **chartjs-node-canvas** - Server-side chart image generation
+- **axios** - HTTP client for Discord webhook integration
 
 ### Frontend
 - **HTML/CSS/JavaScript** - Static dashboard
@@ -110,7 +119,13 @@ PORT=3000
 NODE_ENV=development
 DATABASE_PATH=./database/promo-indicator.db
 YOUTUBE_API_QUOTA_LIMIT=10000
+
+# Discord Integration (optional)
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN
+ENABLE_VSI_REPORTS=true
 ```
+
+**Note:** Discord integration is optional. If you want daily VSI reports sent to Discord, set up a Discord webhook and configure the URL. See [DISCORD_VSI_REPORTS.md](./DISCORD_VSI_REPORTS.md) for details.
 
 ### 4. Initialize the database
 

@@ -47,9 +47,17 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
+const DailyVsiReportScheduler = require('./schedulers/dailyVsiReport');
+
+const vsiScheduler = new DailyVsiReportScheduler(process.env.DISCORD_WEBHOOK_URL, {
+  enabled: process.env.ENABLE_VSI_REPORTS !== 'false'
+});
+
 app.listen(PORT, () => {
   console.log(`Promo-Indicator server is running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  vsiScheduler.start();
 });
 
 module.exports = app;
