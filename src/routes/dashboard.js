@@ -705,6 +705,57 @@ function isValidDate(dateString) {
   return dateString === date.toISOString().split('T')[0];
 }
 
+// DELETE /api/metrics/date/:date - Delete all metrics and videos for a specific date
+router.delete('/metrics/date/:date', (req, res) => {
+  try {
+    const { date } = req.params;
+
+    // Validate date format
+    if (!isValidDate(date)) {
+      return res.status(400).json({
+        success: false,
+        error: 'date must be in YYYY-MM-DD format'
+      });
+    }
+
+    // Delete from both tables
+    const metricsResult = LiveStreamMetrics.deleteByDate(date);
+    const videosResult = LiveStreamVideo.deleteByDate(date);
+
+    const totalDeleted = metricsResult.changes + videosResult.changes;
+
+    if (totalDeleted === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No data found for the specified date',
+        data: {
+          date: date,
+          metrics_deleted: 0,
+          videos_deleted: 0
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully deleted all data for ${date}`,
+      data: {
+        date: date,
+        metrics_deleted: metricsResult.changes,
+        videos_deleted: videosResult.changes,
+        total_deleted: totalDeleted
+      }
+    });
+  } catch (error) {
+    console.error('Error deleting metrics by date:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete metrics',
+      message: error.message
+    });
+  }
+});
+
 // POST /api/collect-metrics - Trigger metrics collection
 router.post('/collect-metrics', async (req, res) => {
   try {

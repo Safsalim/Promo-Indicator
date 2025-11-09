@@ -291,6 +291,28 @@
         <div id="chartLegend" class="chart-legend"></div>
       </section>
 
+      <!-- Data Management Section -->
+      <section class="data-management-section" id="dataManagementSection" style="display: none;">
+        <h2>Data Management</h2>
+        <p class="section-description">Permanently delete data for specific dates. This action cannot be undone.</p>
+        <div class="data-table-container">
+          <table class="data-table" id="dataTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Channels</th>
+                <th>Total Peak Views</th>
+                <th>Total Streams</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="dataTableBody">
+            </tbody>
+          </table>
+        </div>
+        <div id="deleteDataFeedback" class="feedback-message" style="display: none;"></div>
+      </section>
+
       <!-- RSI Chart Section -->
       <section class="chart-section rsi-section">
         <div class="rsi-header">

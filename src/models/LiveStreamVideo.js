@@ -95,6 +95,12 @@ class LiveStreamVideo {
     const stmt = db.prepare('DELETE FROM live_stream_videos WHERE channel_id = ?');
     return stmt.run(channelId);
   }
+
+  static deleteByDate(date) {
+    const db = getDatabase();
+    const stmt = db.prepare('DELETE FROM live_stream_videos WHERE date = ?');
+    return stmt.run(date);
+  }
 }
 
 module.exports = LiveStreamVideo;
