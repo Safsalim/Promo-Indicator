@@ -258,6 +258,7 @@ async function fetchMetrics() {
       updateFngChart(currentFngData);
       updateVsiChart(currentVsiData, channelIds);
       updateSummaryStats(summaryResult.data, currentMetrics);
+      updateDataManagementTable(currentMetrics);
       document.getElementById('noDataMessage').style.display = 'none';
     }
     
@@ -272,6 +273,7 @@ async function fetchMetrics() {
 
 function showNoData() {
   document.getElementById('noDataMessage').style.display = 'block';
+  document.getElementById('dataManagementSection').style.display = 'none';
   
   if (viewsChart) {
     viewsChart.destroy();
@@ -1815,6 +1817,166 @@ Focus on actionable trading insights and provide specific recommendations based 
     alert('Failed to copy prompt to clipboard. Please copy it manually from the console.');
     console.log('AI Analysis Prompt:\n\n' + prompt);
   });
+}
+
+function updateDataManagementTable(metrics) {
+  const section = document.getElementById('dataManagementSection');
+  const tbody = document.getElementById('dataTableBody');
+  
+  if (!metrics || metrics.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  
+  section.style.display = 'block';
+  
+  const groupedByDate = {};
+  
+  metrics.forEach(metric => {
+    const date = metric.date;
+    if (!groupedByDate[date]) {
+      groupedByDate[date] = {
+        date: date,
+        channels: new Set(),
+        totalViews: 0,
+        totalStreams: 0
+      };
+    }
+    
+    groupedByDate[date].channels.add(metric.channel_name || metric.channel_handle);
+    groupedByDate[date].totalViews += metric.total_live_stream_views || 0;
+    groupedByDate[date].totalStreams += metric.live_stream_count || 0;
+  });
+  
+  const sortedDates = Object.keys(groupedByDate).sort().reverse();
+  
+  tbody.innerHTML = sortedDates.map(date => {
+    const data = groupedByDate[date];
+    const channelCount = data.channels.size;
+    const channelText = channelCount === 1 ? 
+      Array.from(data.channels)[0] : 
+      `${channelCount} channels`;
+    
+    return `
+      <tr data-date="${date}">
+        <td>${formatDate(date)}</td>
+        <td>${channelText}</td>
+        <td>${formatNumber(data.totalViews)}</td>
+        <td>${data.totalStreams}</td>
+        <td>
+          <button class="btn-delete" data-date="${date}">
+            <span class="delete-icon">🗑️</span>
+            <span>Delete</span>
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+  
+  tbody.querySelectorAll('.btn-delete').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const date = e.currentTarget.getAttribute('data-date');
+      showDeleteConfirmation(date);
+    });
+  });
+}
+
+function showDeleteConfirmation(date) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-icon">⚠️</span>
+        <h3 class="modal-title">Delete Data for ${formatDate(date)}</h3>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to permanently delete all data for this date?</p>
+        <p>This will remove:</p>
+        <ul style="margin: 10px 0; padding-left: 20px;">
+          <li>All metrics records from the live_stream_metrics table</li>
+          <li>All video records from the live_stream_videos table</li>
+        </ul>
+        <div class="modal-warning">
+          ⚠️ This action cannot be undone. The data will be permanently deleted from the database.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn modal-btn-cancel" id="modalCancelBtn">Cancel</button>
+        <button class="modal-btn modal-btn-confirm" id="modalConfirmBtn">Delete Permanently</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(overlay);
+  
+  const cancelBtn = overlay.querySelector('#modalCancelBtn');
+  const confirmBtn = overlay.querySelector('#modalConfirmBtn');
+  
+  cancelBtn.addEventListener('click', () => {
+    overlay.remove();
+  });
+  
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+    }
+  });
+  
+  confirmBtn.addEventListener('click', async () => {
+    confirmBtn.disabled = true;
+    cancelBtn.disabled = true;
+    confirmBtn.textContent = 'Deleting...';
+    
+    try {
+      await deleteDayData(date);
+      overlay.remove();
+    } catch (error) {
+      confirmBtn.disabled = false;
+      cancelBtn.disabled = false;
+      confirmBtn.textContent = 'Delete Permanently';
+    }
+  });
+}
+
+async function deleteDayData(date) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/metrics/date/${date}`, {
+      method: 'DELETE'
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to delete data');
+    }
+    
+    showFeedback('deleteDataFeedback', 
+      `✓ Successfully deleted ${result.data.total_deleted} records for ${formatDate(date)}`, 
+      'success');
+    
+    const row = document.querySelector(`tr[data-date="${date}"]`);
+    if (row) {
+      row.style.backgroundColor = '#fef2f2';
+      row.style.transition = 'opacity 0.5s ease';
+      row.style.opacity = '0';
+      setTimeout(() => {
+        row.remove();
+      }, 500);
+    }
+    
+    setTimeout(() => {
+      fetchMetrics();
+    }, 1000);
+    
+  } catch (error) {
+    console.error('Error deleting data:', error);
+    showFeedback('deleteDataFeedback', 
+      `❌ Failed to delete data: ${error.message}`, 
+      'error');
+    throw error;
+  }
 }
 
 async function init() {

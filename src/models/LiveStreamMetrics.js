@@ -158,6 +158,12 @@ class LiveStreamMetrics {
     return stmt.run(channelId);
   }
 
+  static deleteByDate(date) {
+    const db = getDatabase();
+    const stmt = db.prepare('DELETE FROM live_stream_metrics WHERE date = ?');
+    return stmt.run(date);
+  }
+
   static getTotalViewsByChannelId(channelId) {
     const db = getDatabase();
     const stmt = db.prepare(`
