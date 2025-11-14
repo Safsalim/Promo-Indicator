@@ -291,28 +291,6 @@
         <div id="chartLegend" class="chart-legend"></div>
       </section>
 
-      <!-- Data Management Section -->
-      <section class="data-management-section" id="dataManagementSection" style="display: none;">
-        <h2>Data Management</h2>
-        <p class="section-description">Permanently delete data for specific dates. This action cannot be undone.</p>
-        <div class="data-table-container">
-          <table class="data-table" id="dataTable">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Channels</th>
-                <th>Total Peak Views</th>
-                <th>Total Streams</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="dataTableBody">
-            </tbody>
-          </table>
-        </div>
-        <div id="deleteDataFeedback" class="feedback-message" style="display: none;"></div>
-      </section>
-
       <!-- RSI Chart Section -->
       <section class="chart-section rsi-section">
         <div class="rsi-header">
@@ -430,6 +408,67 @@
         <div class="chart-container">
           <canvas id="vsiChart"></canvas>
         </div>
+      </section>
+
+      <!-- Data Management Section -->
+      <section class="data-management-section" id="dataManagementSection" style="display: none;">
+        <h2>Data Management</h2>
+        <p class="section-description">View and manage your collected data. Delete specific dates or exclude anomalous data from calculations.</p>
+        
+        <div class="data-management-controls">
+          <div class="rows-per-page">
+            <label for="rowsPerPage">Rows per page:</label>
+            <select id="rowsPerPage">
+              <option value="10">10</option>
+              <option value="15" selected>15</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="data-table-container">
+          <table class="data-table" id="dataTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Channels</th>
+                <th class="sortable" data-sort="views">
+                  Total Peak Views
+                  <span class="sort-indicator">⇅</span>
+                </th>
+                <th>Total Streams</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="dataTableBody">
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination-container" id="paginationContainer" style="display: none;">
+          <div class="pagination-info" id="paginationInfo">
+            Showing 1-15 of 100 entries
+          </div>
+          <div class="pagination-controls">
+            <button class="pagination-btn" id="firstPageBtn" title="First Page">
+              <span>«</span>
+            </button>
+            <button class="pagination-btn" id="prevPageBtn" title="Previous Page">
+              <span>‹</span>
+            </button>
+            <div class="pagination-pages" id="paginationPages">
+            </div>
+            <button class="pagination-btn" id="nextPageBtn" title="Next Page">
+              <span>›</span>
+            </button>
+            <button class="pagination-btn" id="lastPageBtn" title="Last Page">
+              <span>»</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="deleteDataFeedback" class="feedback-message" style="display: none;"></div>
       </section>
 
       <!-- No Data Message -->
