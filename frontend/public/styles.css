@@ -22,6 +22,24 @@
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --chart-grid-color: rgba(0, 0, 0, 0.1);
+  --chart-text-color: #666;
+  --modal-overlay-bg: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] {
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --bg-primary: #1f2937;
+  --bg-secondary: #111827;
+  --bg-tertiary: #374151;
+  --border-color: #4b5563;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --chart-grid-color: rgba(255, 255, 255, 0.1);
+  --chart-text-color: #9ca3af;
+  --modal-overlay-bg: rgba(0, 0, 0, 0.7);
 }
 
 body {
@@ -45,6 +63,7 @@ header {
   margin-bottom: 30px;
   text-align: center;
   box-shadow: var(--shadow-lg);
+  position: relative;
 }
 
 header h1 {
@@ -1602,7 +1621,7 @@ footer {
 .pagination-btn {
   padding: 8px 12px;
   min-width: 40px;
-  background: white;
+  background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
@@ -1644,7 +1663,7 @@ footer {
 .page-btn {
   padding: 8px 12px;
   min-width: 40px;
-  background: white;
+  background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
@@ -1679,7 +1698,7 @@ footer {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--modal-overlay-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1697,7 +1716,7 @@ footer {
 }
 
 .modal-content {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 30px;
   max-width: 500px;
@@ -1774,7 +1793,7 @@ footer {
 }
 
 .modal-btn-cancel:hover {
-  background-color: #e5e7eb;
+  background-color: var(--border-color);
 }
 
 .modal-btn-confirm {
@@ -1837,5 +1856,74 @@ footer {
   .rows-per-page {
     width: 100%;
     justify-content: space-between;
+  }
+}
+
+/* Dark Mode Toggle */
+.dark-mode-toggle {
+  position: absolute;
+  top: 20px;
+  right: 30px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50px;
+  padding: 8px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.dark-mode-toggle:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.dark-mode-toggle-icon {
+  font-size: 1.3em;
+  transition: transform 0.3s ease;
+}
+
+.dark-mode-toggle:hover .dark-mode-toggle-icon {
+  transform: rotate(20deg);
+}
+
+.dark-mode-toggle-text {
+  color: white;
+  font-weight: 500;
+  font-size: 0.9em;
+}
+
+[data-theme="dark"] .dark-mode-toggle {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .dark-mode-toggle:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+@media (max-width: 768px) {
+  .dark-mode-toggle {
+    position: static;
+    margin: 0 auto 10px;
+  }
+  
+  header {
+    position: relative;
+    padding-top: 60px;
+  }
+  
+  .dark-mode-toggle {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 6px 12px;
+  }
+  
+  .dark-mode-toggle-text {
+    display: none;
   }
 }

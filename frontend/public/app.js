@@ -37,6 +37,15 @@ const CHART_COLORS = [
   '#ff6b6b'
 ];
 
+function getThemeColors() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return {
+    gridColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+    textColor: isDark ? '#9ca3af' : '#666',
+    tooltipBg: isDark ? 'rgba(55, 65, 81, 0.95)' : 'rgba(0, 0, 0, 0.8)'
+  };
+}
+
 function formatNumber(num) {
   if (num === null || num === undefined) return '-';
   return num.toLocaleString();
@@ -404,6 +413,8 @@ function updateChart(metrics) {
   if (viewsChart) {
     viewsChart.destroy();
   }
+  
+  const themeColors = getThemeColors();
   
   const ctx = document.getElementById('viewsChart').getContext('2d');
   viewsChart = new Chart(ctx, {

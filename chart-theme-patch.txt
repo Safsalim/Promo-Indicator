@@ -1,0 +1,16 @@
+Instructions for updating charts with theme colors:
+
+All chart creation functions should:
+1. Call `const themeColors = getThemeColors();` before creating the chart
+2. Use `color: themeColors.textColor` in legend.labels
+3. Use `backgroundColor: themeColors.tooltipBg` in tooltip
+4. Use `color: themeColors.textColor` in all ticks (x and y axes)
+5. Use `color: themeColors.gridColor` in grid
+
+Charts to update:
+- viewsChart (app.js) - ✓ Has themeColors declaration
+- rsiChart (app.js) - needs themeColors
+- btcChart (app.js) - needs themeColors  
+- fngChart (app.js) - needs themeColors
+- vsiChart (app.js) - needs themeColors
+- overlayChart (overlay-functions.js) - needs themeColors
