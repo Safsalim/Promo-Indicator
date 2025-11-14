@@ -189,6 +189,12 @@ button {
   border: 1px solid #fca5a5;
 }
 
+.feedback-message.info {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
 .collection-container {
   background-color: var(--bg-secondary);
   padding: 20px;
