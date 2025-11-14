@@ -1366,9 +1366,9 @@ async function collectHistoricalData() {
   const diffTime = Math.abs(end - start);
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   
+  // Show info message for large date ranges
   if (diffDays > 365) {
-    showFeedback('collectionFeedback', 'Date range cannot exceed 365 days', 'error');
-    return;
+    showFeedback('collectionFeedback', `Collecting ${diffDays} days of data. This may take a while...`, 'info');
   }
   
   btn.disabled = true;
@@ -1439,12 +1439,7 @@ async function recalculateData() {
   const diffTime = Math.abs(end - start);
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   
-  if (diffDays > 365) {
-    showFeedback('recalculationFeedback', 'Date range cannot exceed 365 days', 'error');
-    return;
-  }
-  
-  const confirmMsg = `This will re-fetch and recalculate data from ${startDate} to ${endDate} using peak (MAX) aggregation. Continue?`;
+  const confirmMsg = `This will re-fetch and recalculate data from ${startDate} to ${endDate} using peak (MAX) aggregation.${diffDays > 365 ? ` This is ${diffDays} days and may take a while.` : ''} Continue?`;
   if (!confirm(confirmMsg)) {
     return;
   }
@@ -1541,9 +1536,9 @@ async function collectMarketData() {
   const diffTime = Math.abs(end - start);
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   
+  // Show info message for large date ranges
   if (diffDays > 365) {
-    showFeedback('marketCollectionFeedback', 'Date range cannot exceed 365 days', 'error');
-    return;
+    showFeedback('marketCollectionFeedback', `Collecting ${diffDays} days of market data. This may take a while...`, 'info');
   }
   
   btn.disabled = true;

@@ -756,6 +756,35 @@ router.delete('/metrics/date/:date', (req, res) => {
   }
 });
 
+// Helper function to split date range into 365-day chunks
+function splitDateRangeIntoChunks(startDate, endDate, chunkSizeDays = 365) {
+  const chunks = [];
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  let currentStart = new Date(start);
+  
+  while (currentStart <= end) {
+    const currentEnd = new Date(currentStart);
+    currentEnd.setDate(currentEnd.getDate() + chunkSizeDays - 1);
+    
+    // Don't exceed the requested end date
+    if (currentEnd > end) {
+      currentEnd.setTime(end.getTime());
+    }
+    
+    chunks.push({
+      start: currentStart.toISOString().split('T')[0],
+      end: currentEnd.toISOString().split('T')[0]
+    });
+    
+    // Move to next chunk
+    currentStart.setDate(currentStart.getDate() + chunkSizeDays);
+  }
+  
+  return chunks;
+}
+
 // POST /api/collect-metrics - Trigger metrics collection
 router.post('/collect-metrics', async (req, res) => {
   try {
@@ -811,28 +840,89 @@ router.post('/collect-metrics', async (req, res) => {
       }
     }
 
-    const collectionOptions = {
-      startDate: start_date || null,
-      endDate: end_date || null,
-      channelIds: channelIdsArray,
-      dryRun: false,
-      verbose: verbose || false,
-      includeMembersOnly: include_members_only || false
+    // Check if date range exceeds 365 days and split if necessary
+    const dateRanges = [];
+    if (start_date && end_date) {
+      const start = new Date(start_date);
+      const end = new Date(end_date);
+      const diffTime = Math.abs(end - start);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays > 365) {
+        console.log(`Date range exceeds 365 days (${diffDays} days). Splitting into multiple requests...`);
+        const chunks = splitDateRangeIntoChunks(start_date, end_date, 365);
+        dateRanges.push(...chunks);
+        console.log(`Split into ${chunks.length} chunks of 365 days each`);
+      } else {
+        dateRanges.push({ start: start_date, end: end_date });
+      }
+    } else {
+      // If no date range specified, use defaults from collector
+      dateRanges.push({ start: start_date || null, end: end_date || null });
+    }
+
+    // Collect metrics for each date range chunk
+    const allResults = {
+      totalChannels: 0,
+      successful: 0,
+      failed: 0,
+      details: [],
+      chunks: dateRanges.length
     };
 
-    const results = await liveStreamCollector.collectMetrics(collectionOptions);
+    for (let i = 0; i < dateRanges.length; i++) {
+      const chunk = dateRanges[i];
+      console.log(`\nProcessing chunk ${i + 1}/${dateRanges.length}: ${chunk.start} to ${chunk.end}`);
+      
+      const collectionOptions = {
+        startDate: chunk.start,
+        endDate: chunk.end,
+        channelIds: channelIdsArray,
+        dryRun: false,
+        verbose: verbose || false,
+        includeMembersOnly: include_members_only || false
+      };
+
+      const results = await liveStreamCollector.collectMetrics(collectionOptions);
+
+      // Aggregate results from this chunk
+      allResults.totalChannels = results.totalChannels;
+      allResults.successful += results.successful;
+      allResults.failed += results.failed;
+      
+      // Merge details, combining by channel
+      results.details.forEach(detail => {
+        const existing = allResults.details.find(d => d.channelId === detail.channelId);
+        if (existing) {
+          existing.processed = (existing.processed || 0) + (detail.processed || 0);
+          existing.success = existing.success && detail.success;
+          if (!detail.success) {
+            existing.message = detail.message;
+          }
+        } else {
+          allResults.details.push({ ...detail });
+        }
+      });
+    }
+
+    // Recalculate successful/failed based on aggregated details
+    allResults.successful = allResults.details.filter(d => d.success).length;
+    allResults.failed = allResults.details.filter(d => !d.success).length;
 
     res.json({
-      success: results.failed === 0,
+      success: allResults.failed === 0,
       data: {
-        total_channels: results.totalChannels,
-        successful: results.successful,
-        failed: results.failed,
-        details: results.details
+        total_channels: allResults.totalChannels,
+        successful: allResults.successful,
+        failed: allResults.failed,
+        details: allResults.details,
+        chunks_processed: allResults.chunks
       },
-      message: results.failed === 0 
-        ? 'Collection completed successfully' 
-        : `Collection completed with ${results.failed} failure(s)`
+      message: allResults.failed === 0 
+        ? allResults.chunks > 1 
+          ? `Collection completed successfully (processed ${allResults.chunks} date range chunks)` 
+          : 'Collection completed successfully'
+        : `Collection completed with ${allResults.failed} failure(s)`
     });
   } catch (error) {
     console.error('Error collecting metrics:', error);
