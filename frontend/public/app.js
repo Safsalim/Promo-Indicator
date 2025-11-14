@@ -15,6 +15,15 @@ let currentFngData = [];
 let currentVsiData = {};
 let currentViewMode = 'stacked';
 
+// Pagination state
+let paginationState = {
+  currentPage: 1,
+  rowsPerPage: 15,
+  sortColumn: null,
+  sortDirection: 'desc', // 'asc' or 'desc'
+  allData: []
+};
+
 const CHART_COLORS = [
   '#667eea',
   '#764ba2',
@@ -1674,6 +1683,24 @@ function setupEventListeners() {
       dropdown.classList.remove('active');
     }
   });
+
+  // Pagination event listeners
+  document.getElementById('firstPageBtn').addEventListener('click', goToFirstPage);
+  document.getElementById('prevPageBtn').addEventListener('click', goToPrevPage);
+  document.getElementById('nextPageBtn').addEventListener('click', goToNextPage);
+  document.getElementById('lastPageBtn').addEventListener('click', goToLastPage);
+  
+  document.getElementById('rowsPerPage').addEventListener('change', (e) => {
+    changeRowsPerPage(parseInt(e.target.value));
+  });
+  
+  // Sortable column headers
+  document.querySelectorAll('.data-table th.sortable').forEach(th => {
+    th.addEventListener('click', (e) => {
+      const column = e.currentTarget.getAttribute('data-sort');
+      toggleSort(column);
+    });
+  });
 }
 
 function toggleExportDropdown() {
@@ -1816,7 +1843,6 @@ Focus on actionable trading insights and provide specific recommendations based 
 
 function updateDataManagementTable(metrics) {
   const section = document.getElementById('dataManagementSection');
-  const tbody = document.getElementById('dataTableBody');
   
   if (!metrics || metrics.length === 0) {
     section.style.display = 'none';
@@ -1825,6 +1851,7 @@ function updateDataManagementTable(metrics) {
   
   section.style.display = 'block';
   
+  // Group data by date
   const groupedByDate = {};
   
   metrics.forEach(metric => {
@@ -1843,23 +1870,65 @@ function updateDataManagementTable(metrics) {
     groupedByDate[date].totalStreams += metric.live_stream_count || 0;
   });
   
-  const sortedDates = Object.keys(groupedByDate).sort().reverse();
-  
-  tbody.innerHTML = sortedDates.map(date => {
+  // Convert to array
+  paginationState.allData = Object.keys(groupedByDate).map(date => {
     const data = groupedByDate[date];
-    const channelCount = data.channels.size;
-    const channelText = channelCount === 1 ? 
-      Array.from(data.channels)[0] : 
-      `${channelCount} channels`;
+    return {
+      date: date,
+      channels: Array.from(data.channels),
+      channelCount: data.channels.size,
+      totalViews: data.totalViews,
+      totalStreams: data.totalStreams
+    };
+  });
+  
+  // Sort by date (newest first) by default
+  if (!paginationState.sortColumn) {
+    paginationState.allData.sort((a, b) => b.date.localeCompare(a.date));
+  }
+  
+  // Reset to first page
+  paginationState.currentPage = 1;
+  
+  // Render the table
+  renderDataManagementPage();
+}
+
+function renderDataManagementPage() {
+  const tbody = document.getElementById('dataTableBody');
+  const paginationContainer = document.getElementById('paginationContainer');
+  
+  // Apply sorting if active
+  if (paginationState.sortColumn) {
+    sortData(paginationState.sortColumn, paginationState.sortDirection);
+  }
+  
+  const totalRows = paginationState.allData.length;
+  const totalPages = Math.ceil(totalRows / paginationState.rowsPerPage);
+  
+  // Ensure current page is valid
+  if (paginationState.currentPage > totalPages) {
+    paginationState.currentPage = totalPages || 1;
+  }
+  
+  const startIndex = (paginationState.currentPage - 1) * paginationState.rowsPerPage;
+  const endIndex = Math.min(startIndex + paginationState.rowsPerPage, totalRows);
+  const pageData = paginationState.allData.slice(startIndex, endIndex);
+  
+  // Render table rows
+  tbody.innerHTML = pageData.map(data => {
+    const channelText = data.channelCount === 1 ? 
+      data.channels[0] : 
+      `${data.channelCount} channels`;
     
     return `
-      <tr data-date="${date}">
-        <td>${formatDate(date)}</td>
+      <tr data-date="${data.date}">
+        <td>${formatDate(data.date)}</td>
         <td>${channelText}</td>
         <td>${formatNumber(data.totalViews)}</td>
         <td>${data.totalStreams}</td>
         <td>
-          <button class="btn-delete" data-date="${date}">
+          <button class="btn-delete" data-date="${data.date}">
             <span class="delete-icon">🗑️</span>
             <span>Delete</span>
           </button>
@@ -1868,12 +1937,174 @@ function updateDataManagementTable(metrics) {
     `;
   }).join('');
   
+  // Attach delete event listeners
   tbody.querySelectorAll('.btn-delete').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const date = e.currentTarget.getAttribute('data-date');
       showDeleteConfirmation(date);
     });
   });
+  
+  // Update pagination controls
+  if (totalRows > paginationState.rowsPerPage) {
+    paginationContainer.style.display = 'flex';
+    updatePaginationControls(totalPages, startIndex, endIndex, totalRows);
+  } else {
+    paginationContainer.style.display = 'none';
+  }
+}
+
+function sortData(column, direction) {
+  paginationState.allData.sort((a, b) => {
+    let aVal, bVal;
+    
+    if (column === 'views') {
+      aVal = a.totalViews;
+      bVal = b.totalViews;
+    } else if (column === 'date') {
+      aVal = a.date;
+      bVal = b.date;
+    } else {
+      return 0;
+    }
+    
+    if (direction === 'asc') {
+      return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+    } else {
+      return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+    }
+  });
+}
+
+function updatePaginationControls(totalPages, startIndex, endIndex, totalRows) {
+  const paginationInfo = document.getElementById('paginationInfo');
+  const paginationPages = document.getElementById('paginationPages');
+  const firstPageBtn = document.getElementById('firstPageBtn');
+  const prevPageBtn = document.getElementById('prevPageBtn');
+  const nextPageBtn = document.getElementById('nextPageBtn');
+  const lastPageBtn = document.getElementById('lastPageBtn');
+  
+  // Update info text
+  paginationInfo.textContent = `Showing ${startIndex + 1}-${endIndex} of ${totalRows} entries`;
+  
+  // Update button states
+  firstPageBtn.disabled = paginationState.currentPage === 1;
+  prevPageBtn.disabled = paginationState.currentPage === 1;
+  nextPageBtn.disabled = paginationState.currentPage === totalPages;
+  lastPageBtn.disabled = paginationState.currentPage === totalPages;
+  
+  // Generate page buttons
+  const pageButtons = generatePageButtons(paginationState.currentPage, totalPages);
+  paginationPages.innerHTML = pageButtons.map(page => {
+    if (page === '...') {
+      return '<span class="page-ellipsis">...</span>';
+    }
+    
+    const isActive = page === paginationState.currentPage;
+    return `
+      <button class="page-btn ${isActive ? 'active' : ''}" data-page="${page}">
+        ${page}
+      </button>
+    `;
+  }).join('');
+  
+  // Attach page button event listeners
+  paginationPages.querySelectorAll('.page-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const page = parseInt(e.currentTarget.getAttribute('data-page'));
+      goToPage(page);
+    });
+  });
+}
+
+function generatePageButtons(currentPage, totalPages) {
+  const pages = [];
+  const maxVisible = 7;
+  
+  if (totalPages <= maxVisible) {
+    // Show all pages
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+  } else {
+    // Show first, last, and pages around current
+    pages.push(1);
+    
+    if (currentPage > 3) {
+      pages.push('...');
+    }
+    
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    
+    if (currentPage < totalPages - 2) {
+      pages.push('...');
+    }
+    
+    pages.push(totalPages);
+  }
+  
+  return pages;
+}
+
+function goToPage(page) {
+  paginationState.currentPage = page;
+  renderDataManagementPage();
+}
+
+function goToFirstPage() {
+  goToPage(1);
+}
+
+function goToLastPage() {
+  const totalPages = Math.ceil(paginationState.allData.length / paginationState.rowsPerPage);
+  goToPage(totalPages);
+}
+
+function goToPrevPage() {
+  if (paginationState.currentPage > 1) {
+    goToPage(paginationState.currentPage - 1);
+  }
+}
+
+function goToNextPage() {
+  const totalPages = Math.ceil(paginationState.allData.length / paginationState.rowsPerPage);
+  if (paginationState.currentPage < totalPages) {
+    goToPage(paginationState.currentPage + 1);
+  }
+}
+
+function changeRowsPerPage(newRowsPerPage) {
+  paginationState.rowsPerPage = newRowsPerPage;
+  paginationState.currentPage = 1;
+  renderDataManagementPage();
+}
+
+function toggleSort(column) {
+  if (paginationState.sortColumn === column) {
+    // Toggle direction
+    paginationState.sortDirection = paginationState.sortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    // New column
+    paginationState.sortColumn = column;
+    paginationState.sortDirection = 'desc';
+  }
+  
+  // Update sort indicator in header
+  document.querySelectorAll('.data-table th.sortable').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+  });
+  
+  const activeHeader = document.querySelector(`.data-table th.sortable[data-sort="${column}"]`);
+  if (activeHeader) {
+    activeHeader.classList.add(`sort-${paginationState.sortDirection}`);
+  }
+  
+  renderDataManagementPage();
 }
 
 function showDeleteConfirmation(date) {
