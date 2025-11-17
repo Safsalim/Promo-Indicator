@@ -8,11 +8,6 @@ yarn.lock
 .env.local
 .env.*.local
 
-# Google Credentials
-config/google-credentials.json
-*-credentials.json
-!*-credentials.template.json
-
 # Database
 database/*.db
 database/*.db-journal
