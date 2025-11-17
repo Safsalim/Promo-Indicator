@@ -512,6 +512,63 @@ Failed: 0
 ============================================================
 ```
 
+## Google Sheets Export
+
+Export YouTube livestream data directly to Google Sheets for easy sharing and analysis.
+
+### Features
+
+- **Automatic Data Fetching**: Fetches all livestreams from a YouTube channel
+- **Date Range Support**: Filter livestreams by date range
+- **Duplicate Prevention**: Only adds new livestreams (skips existing entries)
+- **Filtering**: Excludes non-public videos and non-livestream content
+- **Clean Formatting**: Organized columns with proper data types
+
+### Quick Start
+
+1. **Set up Google Service Account** (one-time setup):
+   - See [SETUP_GOOGLE_SHEETS.md](./SETUP_GOOGLE_SHEETS.md) for detailed instructions
+   - Configure credentials in `.env` file
+
+2. **Share your Google Sheet** with the service account email
+
+3. **Run the export**:
+   ```bash
+   npm run fetch-ciidb-to-sheet
+   ```
+
+### Configuration
+
+Add to your `.env` file:
+
+```env
+# Option 1: Full JSON credentials (recommended for production)
+GOOGLE_SERVICE_ACCOUNT_JSON='{"type":"service_account","project_id":"...","private_key":"..."}'
+
+# Option 2: Path to credentials file (recommended for development)
+GOOGLE_CREDENTIALS_PATH=./config/google-credentials.json
+```
+
+### Testing Setup
+
+Verify your Google Sheets configuration:
+
+```bash
+npm run test:google-sheets
+```
+
+### Data Exported
+
+The script exports the following columns:
+- **Livestream Date** - Date the livestream was published (YYYY-MM-DD)
+- **Video URL** - Full YouTube video URL
+- **Views Count** - Current view count
+
+### Documentation
+
+- [SETUP_GOOGLE_SHEETS.md](./SETUP_GOOGLE_SHEETS.md) - Setup instructions
+- [GOOGLE_SHEETS_EXPORT.md](./GOOGLE_SHEETS_EXPORT.md) - Detailed feature documentation
+
 ## Development
 
 ### Adding New Features
