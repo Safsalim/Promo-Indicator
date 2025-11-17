@@ -22,9 +22,7 @@
     "manage-channels": "node src/scripts/manageChannels.js",
     "collect-market-data": "node src/scripts/collectMarketData.js",
     "seed:test-data": "node src/scripts/seedTestData.js",
-    "test:vsi-report": "node src/scripts/testVsiReport.js",
-    "fetch-ciidb-to-sheet": "node src/scripts/fetchCiidbToSheet.js",
-    "test:google-sheets": "node src/tests/googleSheets.test.js"
+    "test:vsi-report": "node src/scripts/testVsiReport.js"
   },
   "keywords": [
     "youtube",
