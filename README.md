@@ -25,6 +25,13 @@ YouTube promotional analytics and monitoring dashboard for tracking video perfor
   - 30-day chart visualization with peak views overlay
   - Color-coded sentiment indicators
   - See [DISCORD_VSI_REPORTS.md](./DISCORD_VSI_REPORTS.md) for details
+- **Anomaly Detection & Auto-Exclusion** - Automatic spike detection
+  - Detects view count spikes exceeding 1000% (configurable)
+  - Automatically excludes anomalies from metrics calculations
+  - Smart baseline calculation using 7-day moving average
+  - Manual override support with audit trail
+  - CLI and API interfaces for detection and restoration
+  - See [ANOMALY_DETECTION.md](./ANOMALY_DETECTION.md) for details
 
 ## Tech Stack
 
@@ -198,6 +205,17 @@ http://localhost:3000
 
 For detailed documentation, see [DASHBOARD_API.md](./DASHBOARD_API.md).
 
+### Anomaly Detection Routes
+
+- `POST /api/anomalies/detect` - Detect and exclude anomalies (supports dry run mode)
+- `POST /api/anomalies/restore` - Restore auto-excluded anomalies
+- `GET /api/anomalies/config` - Get current anomaly detection configuration
+- `POST /api/metrics/:id/exclude` - Manually exclude a metric
+- `POST /api/metrics/:id/restore` - Restore an excluded metric
+- `GET /api/metrics/excluded` - List all excluded metrics (filter by channel, auto-only)
+
+For detailed documentation, see [ANOMALY_DETECTION.md](./ANOMALY_DETECTION.md).
+
 ### Health Check
 
 - `GET /api/health` - API health status
@@ -246,6 +264,10 @@ For detailed documentation, see [DASHBOARD_API.md](./DASHBOARD_API.md).
 - `date` (TEXT) - Date of metrics (YYYY-MM-DD), indexed
 - `total_live_stream_views` (INTEGER) - Cumulative views for all live streams that day
 - `live_stream_count` (INTEGER) - Number of live streams detected
+- `is_excluded` (INTEGER) - Exclusion flag (0 = included, 1 = excluded)
+- `exclusion_reason` (TEXT) - Reason for exclusion (manual, auto_anomaly_detection)
+- `exclusion_metadata` (TEXT) - JSON metadata about the exclusion
+- `excluded_at` (DATETIME) - Timestamp when excluded
 - `created_at` (DATETIME) - Record creation timestamp
 - **Unique constraint** on (channel_id, date)
 
