@@ -4,12 +4,12 @@ This document describes the automatic anomaly detection system for identifying a
 
 ## Overview
 
-The anomaly detection system automatically identifies days where view counts spike by more than a configurable threshold (default: 1000% or 10x) compared to the previous day's views. Detected anomalies are automatically marked as excluded from metrics calculations to prevent them from skewing VSI and other analytics.
+The anomaly detection system automatically identifies days where view counts spike by more than a configurable threshold (default: 1000%) compared to a baseline average. Detected anomalies are automatically marked as excluded from metrics calculations to prevent them from skewing VSI and other analytics.
 
 ## Features
 
-- **Automatic Detection**: Identifies view count spikes exceeding 1000% (10x) compared to previous day (configurable)
-- **Day-to-Day Comparison**: Compares each day to the immediately previous non-excluded day
+- **Automatic Detection**: Identifies view count spikes exceeding 1000% (configurable)
+- **Smart Baseline**: Uses 7-day moving average for robust anomaly detection
 - **Auto-Exclusion**: Automatically marks detected anomalies as excluded
 - **Audit Trail**: Tracks exclusion reason, metadata, and timestamp
 - **Manual Override**: Separately tracks manual exclusions vs auto-detected anomalies
@@ -22,11 +22,14 @@ The anomaly detection system automatically identifies days where view counts spi
 Anomaly detection can be configured via environment variables:
 
 ```bash
-# Spike threshold multiplier (10.0 = 1000% increase or 10x)
-ANOMALY_SPIKE_THRESHOLD=10.0
+# Spike threshold multiplier (11.0 = 1000% spike)
+ANOMALY_SPIKE_THRESHOLD=11.0
 
-# Number of days to look back for previous non-excluded day
-ANOMALY_LOOKBACK_DAYS=7
+# Number of days to use for baseline calculation
+ANOMALY_BASELINE_DAYS=7
+
+# Minimum number of days required for baseline
+ANOMALY_MIN_BASELINE_DAYS=3
 
 # Enable automatic detection on data collection (not implemented yet)
 ANOMALY_AUTO_DETECTION_ENABLED=false
@@ -44,18 +47,16 @@ You can also configure these settings in `src/config/anomalyDetection.js`.
 
 ### Detection Algorithm
 
-1. **Find Previous Day**: For each day, finds the immediately previous non-excluded day (within lookback window)
-2. **Spike Detection**: Compares current day views to previous day views
-3. **Threshold Check**: If `current_views / previous_views > threshold`, marks as anomaly
+1. **Baseline Calculation**: For each day, calculates the average view count of the previous N days (default: 7)
+2. **Spike Detection**: Compares current day views to baseline
+3. **Threshold Check**: If `current_views / baseline > threshold`, marks as anomaly
 4. **Auto-Exclusion**: Excludes the day with reason `auto_anomaly_detection` and stores metadata
 
-### Detection Rules
+### Baseline Rules
 
-- Compares to the immediately previous non-excluded day
-- Looks back up to N days (default: 7) to find a valid previous day
-- Skips detection if no valid previous day exists
-- Skips detection if previous day has 0 views (avoid division by zero)
-- Default threshold: 10.0 (meaning current views must be > 10x previous day)
+- Only uses non-excluded days for baseline calculation
+- Requires minimum 3 days of data for baseline (configurable)
+- Skips detection if insufficient baseline data exists
 
 ### Exclusion Tracking
 
@@ -105,8 +106,9 @@ node src/scripts/detectAnomalies.js --restore --channel @channelhandle --start-d
 - `--channel-id <id>` - Run for specific channel ID
 - `--start-date <YYYY-MM-DD>` - Start date for detection range
 - `--end-date <YYYY-MM-DD>` - End date for detection range
-- `--threshold <number>` - Spike threshold multiplier (default: 10.0, meaning 10x increase)
-- `--lookback-days <number>` - Days to look back for previous day (default: 7)
+- `--threshold <number>` - Spike threshold multiplier (default: 11.0)
+- `--baseline-days <number>` - Days for baseline calculation (default: 7)
+- `--min-baseline <number>` - Minimum baseline days required (default: 3)
 - `--dry-run` - Show what would be excluded without excluding
 - `--restore` - Restore auto-excluded anomalies
 - `--list-excluded` - List all auto-excluded metrics
@@ -124,8 +126,9 @@ Content-Type: application/json
   "channel_id": 1,                // Optional: specific channel
   "start_date": "2024-01-01",     // Optional: date range start
   "end_date": "2024-12-31",       // Optional: date range end
-  "spike_threshold": 10.0,        // Optional: custom threshold (10.0 = 10x increase)
-  "lookback_days": 7,             // Optional: days to look back for previous day
+  "spike_threshold": 11.0,        // Optional: custom threshold
+  "baseline_days": 7,             // Optional: custom baseline days
+  "min_baseline_days": 3,         // Optional: custom min baseline
   "dry_run": false                // Optional: dry run mode
 }
 ```
@@ -227,7 +230,7 @@ npm run detect-anomalies:dry-run
 npm run detect-anomalies
 ```
 
-### Example 2: Custom threshold for 500% increase (6x)
+### Example 2: Custom threshold for 500% spikes
 
 ```bash
 node src/scripts/detectAnomalies.js --threshold 6 --dry-run
@@ -255,7 +258,7 @@ curl -X POST http://localhost:3000/api/anomalies/detect \
   -H "Content-Type: application/json" \
   -d '{
     "dry_run": true,
-    "spike_threshold": 10.0
+    "spike_threshold": 11.0
   }'
 ```
 
@@ -263,14 +266,15 @@ curl -X POST http://localhost:3000/api/anomalies/detect \
 
 ### No anomalies detected
 
-- Check if you have enough data (requires at least 2 consecutive days)
+- Check if you have enough data (requires at least 3+ days of baseline)
 - Verify the threshold is appropriate for your data
 - Use `--dry-run` to see detection details
 
 ### Too many false positives
 
-- Increase the spike threshold: `--threshold 15` (for 1400% increase or 15x)
-- Increase lookback days: `--lookback-days 14` (to find previous day further back)
+- Increase the spike threshold: `--threshold 15` (for 1400% spike)
+- Increase baseline days: `--baseline-days 14`
+- Increase minimum baseline: `--min-baseline 5`
 
 ### Restore accidentally excluded metrics
 
