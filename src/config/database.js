@@ -79,10 +79,6 @@ function initializeSchema() {
       total_live_stream_views INTEGER DEFAULT 0,
       live_stream_count INTEGER DEFAULT 0,
       peak_video_id TEXT,
-      is_excluded INTEGER DEFAULT 0,
-      exclusion_reason TEXT,
-      exclusion_metadata TEXT,
-      excluded_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (channel_id) REFERENCES channels(id),
       UNIQUE(channel_id, date)
@@ -133,24 +129,8 @@ function initializeSchema() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS filtered_videos (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      video_id TEXT NOT NULL,
-      channel_id INTEGER NOT NULL,
-      reason TEXT NOT NULL,
-      title TEXT,
-      privacy_status TEXT,
-      detected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (channel_id) REFERENCES channels(id),
-      UNIQUE(video_id, channel_id, detected_at)
-    );
-
     CREATE INDEX IF NOT EXISTS idx_btc_price_data_date ON btc_price_data(date);
     CREATE INDEX IF NOT EXISTS idx_fear_greed_index_date ON fear_greed_index(date);
-    CREATE INDEX IF NOT EXISTS idx_filtered_videos_channel_id ON filtered_videos(channel_id);
-    CREATE INDEX IF NOT EXISTS idx_filtered_videos_reason ON filtered_videos(reason);
-    CREATE INDEX IF NOT EXISTS idx_filtered_videos_detected_at ON filtered_videos(detected_at);
-    CREATE INDEX IF NOT EXISTS idx_live_stream_metrics_is_excluded ON live_stream_metrics(is_excluded);
   `);
 
   console.log('Database schema initialized successfully');

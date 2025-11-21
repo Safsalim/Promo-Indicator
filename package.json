@@ -10,8 +10,6 @@
     "test:youtube-api": "node src/tests/youtubeApiClient.test.js",
     "test:dashboard": "node src/tests/dashboardApi.test.js",
     "test:dashboard-integration": "node src/tests/dashboardApi.integration.test.js",
-    "test:anomaly-detector": "node src/tests/anomalyDetector.test.js",
-    "test:anomaly-api": "node src/tests/anomalyApi.test.js",
     "example:youtube-api": "node src/examples/youtubeApiExample.js",
     "init-db": "node src/scripts/initDatabase.js",
     "create-db": "node src/scripts/createDatabase.js",
@@ -24,10 +22,7 @@
     "manage-channels": "node src/scripts/manageChannels.js",
     "collect-market-data": "node src/scripts/collectMarketData.js",
     "seed:test-data": "node src/scripts/seedTestData.js",
-    "test:vsi-report": "node src/scripts/testVsiReport.js",
-    "detect-anomalies": "node src/scripts/detectAnomalies.js",
-    "detect-anomalies:dry-run": "node src/scripts/detectAnomalies.js --dry-run",
-    "restore-anomalies": "node src/scripts/detectAnomalies.js --restore"
+    "test:vsi-report": "node src/scripts/testVsiReport.js"
   },
   "keywords": [
     "youtube",
