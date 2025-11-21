@@ -40,7 +40,7 @@ function setupTestData() {
   });
   
   console.log(`Created test channel (ID: ${channelId}) with ${testDates.length} days of metrics`);
-  console.log('Day 2024-01-08 has 12,000 views (10.9x increase from previous day\'s 1,100 views)\n');
+  console.log('Day 2024-01-08 has 12,000 views (10x spike from ~1,100 baseline)\n');
   
   return channelId;
 }
@@ -65,8 +65,9 @@ function testAnomalyDetection() {
     console.log('Test 1: Dry Run Detection');
     console.log('---------------------------');
     const detector = new AnomalyDetector({
-      spikeThreshold: 10.0,
-      lookbackDays: 7,
+      spikeThreshold: 11.0,
+      baselineDays: 7,
+      minBaselineDays: 3,
       dryRun: true
     });
     
@@ -79,15 +80,16 @@ function testAnomalyDetection() {
     if (result.anomalies.length > 0) {
       console.log('\nDetected anomalies:');
       result.anomalies.forEach(a => {
-        console.log(`  - ${a.date}: ${a.views} views (${a.percentage_increase}% increase from ${a.previous_views} on ${a.previous_day}, ratio: ${a.ratio}x)`);
+        console.log(`  - ${a.date}: ${a.views} views (${a.percentage_spike}% spike, baseline: ${a.baseline})`);
       });
     }
     
     console.log('\nTest 2: Real Detection and Exclusion');
     console.log('-------------------------------------');
     const detector2 = new AnomalyDetector({
-      spikeThreshold: 10.0,
-      lookbackDays: 7,
+      spikeThreshold: 11.0,
+      baselineDays: 7,
+      minBaselineDays: 3,
       dryRun: false
     });
     
@@ -104,7 +106,7 @@ function testAnomalyDetection() {
         console.log(`  - ${m.date}: is_excluded=${m.is_excluded}, reason=${m.exclusion_reason}`);
         if (m.exclusion_metadata) {
           const meta = JSON.parse(m.exclusion_metadata);
-          console.log(`    Previous day: ${meta.previous_day}, Previous views: ${meta.previous_views}, Threshold: ${meta.spike_threshold}x`);
+          console.log(`    Baseline: ${meta.baseline_avg}, Threshold: ${meta.spike_threshold}x`);
         }
       });
     }
@@ -122,12 +124,13 @@ function testAnomalyDetection() {
     console.log('---------------------------------');
     const detector4 = new AnomalyDetector({
       spikeThreshold: 5.0,
-      lookbackDays: 7,
+      baselineDays: 7,
+      minBaselineDays: 3,
       dryRun: true
     });
     
     const result4 = detector4.detectAnomaliesForChannel(channelId);
-    console.log(`With 5x threshold (400% increase): Found ${result4.anomalies.length} anomalies`);
+    console.log(`With 5x threshold (400% spike): Found ${result4.anomalies.length} anomalies`);
     
     console.log('\n✅ All tests completed successfully!');
     

@@ -2,23 +2,29 @@ const LiveStreamMetrics = require('../models/LiveStreamMetrics');
 const Channel = require('../models/Channel');
 
 const DEFAULT_SPIKE_THRESHOLD = 10.0;
-const DEFAULT_LOOKBACK_DAYS = 7;
+const DEFAULT_BASELINE_DAYS = 7;
+const DEFAULT_MIN_BASELINE_DAYS = 3;
 
 class AnomalyDetector {
   constructor(config = {}) {
     this.spikeThreshold = config.spikeThreshold || DEFAULT_SPIKE_THRESHOLD;
-    this.lookbackDays = config.lookbackDays || DEFAULT_LOOKBACK_DAYS;
+    this.baselineDays = config.baselineDays || DEFAULT_BASELINE_DAYS;
+    this.minBaselineDays = config.minBaselineDays || DEFAULT_MIN_BASELINE_DAYS;
     this.dryRun = config.dryRun || false;
   }
 
-  findPreviousNonExcludedDay(metrics, currentIndex) {
-    for (let i = currentIndex - 1; i >= Math.max(0, currentIndex - this.lookbackDays); i--) {
-      const metric = metrics[i];
-      if ((!metric.is_excluded || metric.is_excluded === 0) && metric.total_live_stream_views > 0) {
-        return metric;
-      }
+  calculateBaseline(metrics) {
+    const validMetrics = metrics.filter(m => 
+      (!m.is_excluded || m.is_excluded === 0) && 
+      m.total_live_stream_views > 0
+    );
+
+    if (validMetrics.length < this.minBaselineDays) {
+      return null;
     }
-    return null;
+
+    const sum = validMetrics.reduce((acc, m) => acc + m.total_live_stream_views, 0);
+    return sum / validMetrics.length;
   }
 
   detectAnomaliesForChannel(channelId, startDate = null, endDate = null) {
@@ -55,23 +61,23 @@ class AnomalyDetector {
         continue;
       }
 
-      const previousMetric = this.findPreviousNonExcludedDay(metrics, i);
+      const baselineMetrics = metrics.slice(Math.max(0, i - this.baselineDays), i);
       
-      if (!previousMetric) {
+      if (baselineMetrics.length < this.minBaselineDays) {
         continue;
       }
 
-      const previousViews = previousMetric.total_live_stream_views;
+      const baseline = this.calculateBaseline(baselineMetrics);
+      
+      if (baseline === null || baseline === 0) {
+        continue;
+      }
+
       const currentViews = currentMetric.total_live_stream_views;
-      
-      if (previousViews === 0) {
-        continue;
-      }
-
-      const ratio = currentViews / previousViews;
+      const ratio = currentViews / baseline;
 
       if (ratio > this.spikeThreshold) {
-        const percentageIncrease = ((ratio - 1) * 100).toFixed(1);
+        const percentageSpike = ((ratio - 1) * 100).toFixed(1);
         
         const anomaly = {
           id: currentMetric.id,
@@ -80,13 +86,12 @@ class AnomalyDetector {
           channel_handle: channel.channel_handle,
           date: currentMetric.date,
           views: currentViews,
-          previous_day: previousMetric.date,
-          previous_views: previousViews,
+          baseline: Math.round(baseline),
           ratio: ratio.toFixed(2),
-          percentage_increase: percentageIncrease,
+          percentage_spike: percentageSpike,
           metadata: {
-            previous_day: previousMetric.date,
-            previous_views: previousViews,
+            baseline_days: baselineMetrics.length,
+            baseline_avg: Math.round(baseline),
             spike_threshold: this.spikeThreshold,
             detection_time: new Date().toISOString()
           }
@@ -102,7 +107,7 @@ class AnomalyDetector {
               anomaly.metadata
             );
             excluded.push(anomaly);
-            console.log(`[AnomalyDetector] Auto-excluded: ${channel.channel_handle} on ${currentMetric.date} - ${currentViews} views (${percentageIncrease}% increase from ${previousViews} on ${previousMetric.date}, ratio: ${ratio.toFixed(2)}x)`);
+            console.log(`[AnomalyDetector] Auto-excluded: ${channel.channel_handle} on ${currentMetric.date} - ${currentViews} views (${percentageSpike}% spike, baseline: ${Math.round(baseline)})`);
           } catch (error) {
             console.error(`[AnomalyDetector] Failed to exclude metric ${currentMetric.id}:`, error.message);
           }
@@ -137,7 +142,7 @@ class AnomalyDetector {
     let totalChecked = 0;
 
     console.log(`[AnomalyDetector] Starting anomaly detection for ${channels.length} channels...`);
-    console.log(`[AnomalyDetector] Configuration: spike_threshold=${this.spikeThreshold}x (${(this.spikeThreshold - 1) * 100}% increase), lookback_days=${this.lookbackDays}, dry_run=${this.dryRun}`);
+    console.log(`[AnomalyDetector] Configuration: spike_threshold=${this.spikeThreshold}x (${(this.spikeThreshold - 1) * 100}%), baseline_days=${this.baselineDays}, dry_run=${this.dryRun}`);
 
     channels.forEach(channel => {
       try {
@@ -164,7 +169,8 @@ class AnomalyDetector {
       total_checked: totalChecked,
       configuration: {
         spike_threshold: this.spikeThreshold,
-        lookback_days: this.lookbackDays,
+        baseline_days: this.baselineDays,
+        min_baseline_days: this.minBaselineDays,
         dry_run: this.dryRun
       }
     };
