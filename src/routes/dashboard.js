@@ -6,6 +6,8 @@ const LiveStreamVideo = require('../models/LiveStreamVideo');
 const { YouTubeApiClient, YouTubeApiError } = require('../services/youtubeApiClient');
 const liveStreamCollector = require('../services/liveStreamCollector');
 const { calculateRSIWithDates, categorizeRSI, getRSILabel, calculateMA7WithDates, calculateVSI } = require('../utils/indicators');
+const AnomalyDetector = require('../services/anomalyDetector');
+const anomalyDetectionConfig = require('../config/anomalyDetection');
 
 // GET /api/channels - List all tracked channels with their metadata
 router.get('/channels', (req, res) => {
@@ -930,6 +932,185 @@ router.post('/collect-metrics', async (req, res) => {
       success: false,
       error: 'Failed to collect metrics',
       message: error.message
+    });
+  }
+});
+
+router.post('/metrics/:id/exclude', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason = 'manual', metadata = null } = req.body;
+
+    const metric = LiveStreamMetrics.findById(id);
+    if (!metric) {
+      return res.status(404).json({
+        success: false,
+        error: 'Metric not found'
+      });
+    }
+
+    LiveStreamMetrics.excludeById(id, reason, metadata);
+
+    res.json({
+      success: true,
+      message: 'Metric excluded successfully',
+      data: {
+        id: parseInt(id),
+        reason: reason,
+        metadata: metadata
+      }
+    });
+  } catch (error) {
+    console.error('Error excluding metric:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to exclude metric'
+    });
+  }
+});
+
+router.post('/metrics/:id/restore', (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const metric = LiveStreamMetrics.findById(id);
+    if (!metric) {
+      return res.status(404).json({
+        success: false,
+        error: 'Metric not found'
+      });
+    }
+
+    LiveStreamMetrics.restoreById(id);
+
+    res.json({
+      success: true,
+      message: 'Metric restored successfully',
+      data: {
+        id: parseInt(id)
+      }
+    });
+  } catch (error) {
+    console.error('Error restoring metric:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to restore metric'
+    });
+  }
+});
+
+router.get('/metrics/excluded', (req, res) => {
+  try {
+    const { channel_id, auto_only } = req.query;
+    
+    let excluded;
+    if (auto_only === 'true') {
+      excluded = LiveStreamMetrics.findAutoExcluded();
+    } else if (channel_id) {
+      excluded = LiveStreamMetrics.findExcludedByChannelId(parseInt(channel_id));
+    } else {
+      excluded = LiveStreamMetrics.findExcluded();
+    }
+
+    excluded.forEach(metric => {
+      if (metric.exclusion_metadata) {
+        try {
+          metric.exclusion_metadata = JSON.parse(metric.exclusion_metadata);
+        } catch (e) {
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      data: excluded,
+      count: excluded.length
+    });
+  } catch (error) {
+    console.error('Error fetching excluded metrics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch excluded metrics'
+    });
+  }
+});
+
+router.post('/anomalies/detect', (req, res) => {
+  try {
+    const {
+      channel_id,
+      start_date,
+      end_date,
+      spike_threshold,
+      baseline_days,
+      min_baseline_days,
+      dry_run = false
+    } = req.body;
+
+    const detector = new AnomalyDetector({
+      spikeThreshold: spike_threshold || anomalyDetectionConfig.spikeThreshold,
+      baselineDays: baseline_days || anomalyDetectionConfig.baselineDays,
+      minBaselineDays: min_baseline_days || anomalyDetectionConfig.minBaselineDays,
+      dryRun: dry_run
+    });
+
+    let result;
+    if (channel_id) {
+      result = detector.detectAnomaliesForChannel(channel_id, start_date, end_date);
+    } else {
+      result = detector.detectAnomaliesForAllChannels(start_date, end_date);
+    }
+
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('Error detecting anomalies:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to detect anomalies',
+      message: error.message
+    });
+  }
+});
+
+router.post('/anomalies/restore', (req, res) => {
+  try {
+    const {
+      channel_id,
+      start_date,
+      end_date
+    } = req.body;
+
+    const detector = new AnomalyDetector();
+    const result = detector.restoreAutoExcludedMetrics(channel_id, start_date, end_date);
+
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('Error restoring anomalies:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to restore anomalies',
+      message: error.message
+    });
+  }
+});
+
+router.get('/anomalies/config', (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: anomalyDetectionConfig
+    });
+  } catch (error) {
+    console.error('Error fetching anomaly detection config:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch configuration'
     });
   }
 });
