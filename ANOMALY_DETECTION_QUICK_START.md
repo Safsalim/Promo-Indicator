@@ -4,7 +4,7 @@ This guide will get you started with the anomaly detection feature in 5 minutes.
 
 ## What It Does
 
-Automatically detects and excludes days where view counts spike by more than 1000% compared to recent averages. This prevents extreme outliers from skewing your analytics and VSI calculations.
+Automatically detects and excludes days where view counts spike by more than 1000% (10x) compared to the previous day. This prevents extreme outliers from skewing your analytics and VSI calculations.
 
 ## Quick Start
 
@@ -50,16 +50,16 @@ node src/scripts/detectAnomalies.js --channel @yourchannelhandle
 
 ### Custom Threshold
 
-For 500% spike threshold instead of 1000%:
+For 500% increase (6x) threshold instead of 1000% (10x):
 
 ```bash
 node src/scripts/detectAnomalies.js --threshold 6 --dry-run
 ```
 
-Threshold calculation: `threshold = (percentage / 100) + 1`
-- 500%: threshold = 6.0
-- 1000%: threshold = 11.0 (default)
-- 2000%: threshold = 21.0
+Threshold calculation: `threshold = multiplier`
+- 5x (400% increase): threshold = 5.0
+- 10x (900% increase): threshold = 10.0 (default)
+- 15x (1400% increase): threshold = 15.0
 
 ### Detect for Date Range
 
@@ -75,14 +75,11 @@ node src/scripts/detectAnomalies.js \
 Set these in your `.env` file:
 
 ```env
-# Spike threshold (11.0 = 1000% spike)
-ANOMALY_SPIKE_THRESHOLD=11.0
+# Spike threshold (10.0 = 1000% increase or 10x)
+ANOMALY_SPIKE_THRESHOLD=10.0
 
-# Days for baseline calculation
-ANOMALY_BASELINE_DAYS=7
-
-# Minimum days required for baseline
-ANOMALY_MIN_BASELINE_DAYS=3
+# Days to look back for previous non-excluded day
+ANOMALY_LOOKBACK_DAYS=7
 ```
 
 ## Understanding the Output
@@ -90,21 +87,22 @@ ANOMALY_MIN_BASELINE_DAYS=3
 When you run detection, you'll see output like:
 
 ```
-[AnomalyDetector] Auto-excluded: @channelname on 2024-01-15 - 25000 views (1100.5% spike, baseline: 2200)
+[AnomalyDetector] Auto-excluded: @channelname on 2024-01-15 - 25000 views (1036.4% increase from 2200 on 2024-01-14, ratio: 11.36x)
 ```
 
 This means:
 - Channel: @channelname
 - Date: 2024-01-15
 - Views: 25,000
-- Spike: 1,100.5% (11x the baseline)
-- Baseline: 2,200 views (7-day average)
+- Increase: 1,036.4% from previous day
+- Previous Day: 2024-01-14 with 2,200 views
+- Ratio: 11.36x (exceeded 10x threshold)
 
 ## How It Works
 
-1. **Baseline Calculation**: Uses 7-day moving average of previous days
-2. **Spike Detection**: Compares current day to baseline
-3. **Auto-Exclusion**: If spike > threshold, marks day as excluded
+1. **Find Previous Day**: Looks for the immediately previous non-excluded day
+2. **Spike Detection**: Compares current day views to previous day views
+3. **Auto-Exclusion**: If ratio > threshold (default 10x), marks day as excluded
 4. **VSI Update**: Excluded days are automatically filtered from VSI calculations
 
 ## REST API Usage
@@ -163,8 +161,8 @@ npm run manage-channels list
 
 ### "No anomalies detected"
 Either:
-- Your data doesn't have spikes > 1000%
-- Not enough baseline data (need 3+ days)
+- Your data doesn't have day-to-day spikes > 10x (1000%)
+- Not enough consecutive data (need at least 2 days)
 - Threshold is too high
 
 Try lower threshold:
