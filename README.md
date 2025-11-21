@@ -26,9 +26,9 @@ YouTube promotional analytics and monitoring dashboard for tracking video perfor
   - Color-coded sentiment indicators
   - See [DISCORD_VSI_REPORTS.md](./DISCORD_VSI_REPORTS.md) for details
 - **Anomaly Detection & Auto-Exclusion** - Automatic spike detection
-  - Detects view count spikes exceeding 1000% (configurable)
+  - Detects view count spikes exceeding 1000% (10x) compared to previous day (configurable)
   - Automatically excludes anomalies from metrics calculations
-  - Smart baseline calculation using 7-day moving average
+  - Day-to-day comparison with smart previous day lookup
   - Manual override support with audit trail
   - CLI and API interfaces for detection and restoration
   - See [ANOMALY_DETECTION.md](./ANOMALY_DETECTION.md) for details

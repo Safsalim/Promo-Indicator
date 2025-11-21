@@ -14,9 +14,8 @@ Options:
   --channel-id <id>         Run detection for a specific channel ID
   --start-date <YYYY-MM-DD> Start date for detection range (optional)
   --end-date <YYYY-MM-DD>   End date for detection range (optional)
-  --threshold <number>      Spike threshold multiplier (default: 11.0 for 1000% spike)
-  --baseline-days <number>  Number of days to use for baseline (default: 7)
-  --min-baseline <number>   Minimum days required for baseline (default: 3)
+  --threshold <number>      Spike threshold multiplier (default: 10.0 for 1000% increase or 10x)
+  --lookback-days <number>  Days to look back for previous day (default: 7)
   --dry-run                 Show what would be excluded without actually excluding
   --restore                 Restore auto-excluded anomalies instead of detecting new ones
   --list-excluded           List all auto-excluded metrics
@@ -56,9 +55,8 @@ function parseArgs() {
     channelId: null,
     startDate: null,
     endDate: null,
-    threshold: 11.0,
-    baselineDays: 7,
-    minBaseline: 3,
+    threshold: 10.0,
+    lookbackDays: 7,
     dryRun: false,
     restore: false,
     listExcluded: false,
@@ -88,11 +86,8 @@ function parseArgs() {
       case '--threshold':
         options.threshold = parseFloat(args[++i]);
         break;
-      case '--baseline-days':
-        options.baselineDays = parseInt(args[++i]);
-        break;
-      case '--min-baseline':
-        options.minBaseline = parseInt(args[++i]);
+      case '--lookback-days':
+        options.lookbackDays = parseInt(args[++i]);
         break;
       case '--dry-run':
         options.dryRun = true;
@@ -138,7 +133,9 @@ function listExcludedMetrics() {
     if (metric.exclusion_metadata) {
       try {
         const metadata = JSON.parse(metric.exclusion_metadata);
-        console.log(`      Baseline: ${metadata.baseline_avg}, Spike: ${((metadata.spike_threshold - 1) * 100).toFixed(0)}% threshold`);
+        if (metadata.previous_day && metadata.previous_views) {
+          console.log(`      Previous: ${metadata.previous_views} views on ${metadata.previous_day}, Threshold: ${metadata.spike_threshold}x`);
+        }
       } catch (e) {
       }
     }
@@ -165,8 +162,7 @@ function main() {
 
     const detector = new AnomalyDetector({
       spikeThreshold: options.threshold,
-      baselineDays: options.baselineDays,
-      minBaselineDays: options.minBaseline,
+      lookbackDays: options.lookbackDays,
       dryRun: options.dryRun
     });
 
@@ -217,7 +213,7 @@ function main() {
         if (result.anomalies.length > 0) {
           console.log(`\nAnomalies found for ${result.channel.channel_handle}:\n`);
           result.anomalies.forEach(anomaly => {
-            console.log(`  ${anomaly.date}: ${anomaly.views} views (${anomaly.percentage_spike}% spike, baseline: ${anomaly.baseline})`);
+            console.log(`  ${anomaly.date}: ${anomaly.views} views (${anomaly.percentage_increase}% increase from ${anomaly.previous_views} on ${anomaly.previous_day}, ratio: ${anomaly.ratio}x)`);
           });
         } else {
           console.log(`\nNo anomalies found for ${result.channel.channel_handle}`);
@@ -234,7 +230,7 @@ function main() {
             if (channelResult.anomalies.length > 0) {
               console.log(`\n${channelResult.channel.channel_handle}:`);
               channelResult.anomalies.forEach(anomaly => {
-                console.log(`  ${anomaly.date}: ${anomaly.views} views (${anomaly.percentage_spike}% spike, baseline: ${anomaly.baseline})`);
+                console.log(`  ${anomaly.date}: ${anomaly.views} views (${anomaly.percentage_increase}% increase from ${anomaly.previous_views} on ${anomaly.previous_day}, ratio: ${anomaly.ratio}x)`);
               });
             }
           });

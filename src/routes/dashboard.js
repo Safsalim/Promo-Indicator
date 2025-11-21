@@ -1042,15 +1042,13 @@ router.post('/anomalies/detect', (req, res) => {
       start_date,
       end_date,
       spike_threshold,
-      baseline_days,
-      min_baseline_days,
+      lookback_days,
       dry_run = false
     } = req.body;
 
     const detector = new AnomalyDetector({
       spikeThreshold: spike_threshold || anomalyDetectionConfig.spikeThreshold,
-      baselineDays: baseline_days || anomalyDetectionConfig.baselineDays,
-      minBaselineDays: min_baseline_days || anomalyDetectionConfig.minBaselineDays,
+      lookbackDays: lookback_days || anomalyDetectionConfig.lookbackDays,
       dryRun: dry_run
     });
 
