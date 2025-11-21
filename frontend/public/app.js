@@ -187,7 +187,7 @@ function initializeDateRange(days = 90) {
   if (days === 'all') {
     startDate = '2020-01-01';
   } else {
-    startDate = getDateDaysAgo(days);
+    startDate = '2024-09-11';
   }
   
   document.getElementById('startDate').value = startDate;
@@ -1508,7 +1508,7 @@ async function recalculateData() {
 
 function initializeCollectionDates() {
   const endDate = getDateDaysAgo(1);
-  const startDate = getDateDaysAgo(30);
+  const startDate = '2024-09-11';
   
   document.getElementById('collectStartDate').value = startDate;
   document.getElementById('collectEndDate').value = endDate;
@@ -1516,7 +1516,7 @@ function initializeCollectionDates() {
 
 function initializeRecalcDates() {
   const endDate = getDateDaysAgo(1);
-  const startDate = getDateDaysAgo(90);
+  const startDate = '2024-09-11';
   
   document.getElementById('recalcStartDate').value = startDate;
   document.getElementById('recalcEndDate').value = endDate;
@@ -1524,7 +1524,7 @@ function initializeRecalcDates() {
 
 function initializeMarketCollectionDates() {
   const endDate = getDateDaysAgo(1);
-  const startDate = getDateDaysAgo(90);
+  const startDate = '2024-09-11';
   
   document.getElementById('marketCollectStartDate').value = startDate;
   document.getElementById('marketCollectEndDate').value = endDate;
