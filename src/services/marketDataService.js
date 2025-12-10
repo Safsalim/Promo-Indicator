@@ -29,7 +29,7 @@ class MarketDataService {
       
       const url = `https://min-api.cryptocompare.com/data/v2/histoday?fsym=BTC&tsym=USD&limit=${daysDiff}&toTs=${endTimestamp}`;
       
-      console.log(`  🔄 Fetching from CryptoCompare API: ${startDate} to ${endDate}`);
+      console.log(`  🔄 Fetching from CryptoCompare API: ${startDate} to ${endDate} (${daysDiff} days)`);
       const response = await fetch(url);
       
       if (!response.ok) {
@@ -38,9 +38,20 @@ class MarketDataService {
       
       const result = await response.json();
       
-      if (!result.Data || !result.Data.Data || !Array.isArray(result.Data.Data)) {
-        throw new Error('Invalid response format from CryptoCompare API');
+      // Check for API-level errors
+      if (result.Response === 'Error' || result.Type === 2) {
+        const errorMsg = result.Message || 'Unknown API error';
+        const errorDetails = result.ParamWithError ? ` (Parameter: ${result.ParamWithError})` : '';
+        throw new Error(`CryptoCompare API error: ${errorMsg}${errorDetails}`);
       }
+      
+      // Validate response structure
+      if (!result.Data || !result.Data.Data || !Array.isArray(result.Data.Data)) {
+        console.error('📋 Received response structure:', JSON.stringify(result, null, 2));
+        throw new Error('Invalid response format from CryptoCompare API - expected result.Data.Data to be an array');
+      }
+      
+      console.log(`  ✓ API Response: ${result.Response || 'Success'} (Type: ${result.Type}, Data points: ${result.Data.Data.length})`);
       
       const dailyData = this.convertCryptoCompareToCandles(result.Data.Data, startDate);
       
@@ -74,8 +85,17 @@ class MarketDataService {
       
       const result = await response.json();
       
+      // Check for API-level errors
+      if (result.Response === 'Error' || result.Type === 2) {
+        const errorMsg = result.Message || 'Unknown API error';
+        const errorDetails = result.ParamWithError ? ` (Parameter: ${result.ParamWithError})` : '';
+        throw new Error(`CryptoCompare API error (chunk ${i + 1}/${chunks.length}): ${errorMsg}${errorDetails}`);
+      }
+      
+      // Validate response structure
       if (!result.Data || !result.Data.Data || !Array.isArray(result.Data.Data)) {
-        throw new Error('Invalid response format from CryptoCompare API');
+        console.error('📋 Received response structure:', JSON.stringify(result, null, 2));
+        throw new Error('Invalid response format from CryptoCompare API - expected result.Data.Data to be an array');
       }
       
       const dailyData = this.convertCryptoCompareToCandles(result.Data.Data, chunk.start);
