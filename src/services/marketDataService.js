@@ -4,63 +4,63 @@ const FearGreedIndex = require('../models/FearGreedIndex');
 class MarketDataService {
   static async fetchBtcPriceData(startDate, endDate) {
     try {
-      let startTimestamp = Math.floor(new Date(startDate).getTime() / 1000);
-      const endTimestamp = Math.floor(new Date(endDate).getTime() / 1000);
-      
-      const coinGeckoHistoricalLimit = Math.floor(new Date('2013-04-28').getTime() / 1000);
-      if (startTimestamp < coinGeckoHistoricalLimit) {
-        console.warn(`⚠ CoinGecko API only supports data from 2013-04-28 onwards`);
-        console.warn(`  Adjusting start date from ${startDate} to 2013-04-28`);
-        startDate = '2013-04-28';
-        startTimestamp = coinGeckoHistoricalLimit;
-      }
+      const startTimestamp = new Date(startDate).getTime();
+      const endTimestamp = new Date(endDate).getTime();
       
       if (startTimestamp > endTimestamp) {
-        console.warn(`⚠ Start date is after end date after adjustment. No data to collect.`);
+        console.warn(`⚠ Start date is after end date. No data to collect.`);
         return [];
       }
       
-      const daysDiff = Math.ceil((endTimestamp - startTimestamp) / (24 * 60 * 60));
+      const daysDiff = Math.ceil((endTimestamp - startTimestamp) / (24 * 60 * 60 * 1000));
       
-      if (daysDiff > 365) {
+      // Check if we need chunking (Binance limit is 1000 records)
+      if (daysDiff > 1000) {
         console.log(`  📊 Large date range detected (${daysDiff} days), collecting in chunks...`);
         return await this.fetchBtcPriceDataChunked(startDate, endDate);
       }
       
-      return await this.fetchFromCoinGeckoOhlc(endDate, daysDiff, startDate);
+      console.log(`  📊 Fetching BTC price data from Binance API (${daysDiff} days)`);
+      
+      return await this.fetchFromBinanceKlines(startDate, endDate);
     } catch (error) {
       console.error('Error fetching BTC price data:', error);
       throw error;
     }
   }
 
-  static async fetchFromCoinGeckoOhlc(endDate, daysDiff, startDate) {
-    const url = `https://api.coingecko.com/api/v3/coins/bitcoin/ohlc?vs_currency=usd&days=365&precision=2`;
+  static async fetchFromBinanceKlines(startDate, endDate) {
+    const startTimestamp = new Date(startDate).getTime();
+    const endTimestamp = new Date(endDate).getTime();
     
-    console.log(`  🔄 Fetching from CoinGecko API: ${startDate} to ${endDate} (${daysDiff} days)`);
+    const params = new URLSearchParams({
+      symbol: 'BTCUSDT',
+      interval: '1d',
+      startTime: startTimestamp.toString(),
+      endTime: endTimestamp.toString(),
+      limit: '1000' // Max limit for Binance API
+    });
+    
+    const url = `https://api.binance.us/api/v3/klines?${params}`;
+    
+    console.log(`  🔄 Fetching from Binance API: ${startDate} to ${endDate}`);
     const response = await fetch(url);
     
     if (!response.ok) {
-      throw new Error(`CoinGecko API error: ${response.status} ${response.statusText}`);
+      throw new Error(`Binance API error: ${response.status} ${response.statusText}`);
     }
     
     const result = await response.json();
     
-    // Check for error response structure (CoinGecko returns errors in status field)
-    if (result.status && result.status.error_code) {
-      const errorMsg = result.status.error_message || 'Unknown API error';
-      throw new Error(`CoinGecko API error: ${errorMsg}`);
-    }
-    
     // Validate response structure
     if (!Array.isArray(result)) {
       console.error('📋 Received response structure:', JSON.stringify(result, null, 2));
-      throw new Error('Invalid response format from CoinGecko API - expected an array of OHLC data');
+      throw new Error('Invalid response format from Binance API - expected an array of kline data');
     }
     
-    console.log(`  ✓ Received ${result.length} data points from CoinGecko`);
+    console.log(`  ✓ Received ${result.length} data points from Binance`);
     
-    const dailyData = this.convertCoinGeckoToCandles(result, startDate, endDate);
+    const dailyData = this.convertBinanceToCandles(result, startDate, endDate);
     
     console.log(`  ✓ Processed ${dailyData.length} days of data within requested range`);
     
@@ -68,7 +68,8 @@ class MarketDataService {
   }
 
   static async fetchBtcPriceDataChunked(startDate, endDate) {
-    const chunks = this.splitDateRangeByDays(startDate, endDate, 365);
+    // Binance doesn't have the 365-day limitation, but we can still use chunking for very large ranges
+    const chunks = this.splitDateRangeByDays(startDate, endDate, 1000); // Binance limit is 1000 records
     const allData = [];
     
     for (let i = 0; i < chunks.length; i++) {
@@ -76,14 +77,14 @@ class MarketDataService {
       console.log(`  📦 Chunk ${i + 1}/${chunks.length}: ${chunk.start} to ${chunk.end}`);
       
       try {
-        const chunkData = await this.fetchFromCoinGeckoOhlc(chunk.end, chunk.days, chunk.start);
+        const chunkData = await this.fetchFromBinanceKlines(chunk.start, chunk.end);
         allData.push(...chunkData);
         
         if (i < chunks.length - 1) {
-          await this.sleep(500);
+          await this.sleep(200); // Shorter delay for Binance
         }
       } catch (error) {
-        throw new Error(`CoinGecko API error (chunk ${i + 1}/${chunks.length}): ${error.message}`);
+        throw new Error(`Binance API error (chunk ${i + 1}/${chunks.length}): ${error.message}`);
       }
     }
     
@@ -134,25 +135,27 @@ class MarketDataService {
     return Array.from(uniqueMap.values()).sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  static convertCoinGeckoToCandles(data, startDate, endDate) {
+  static convertBinanceToCandles(data, startDate, endDate) {
     const startTs = new Date(startDate).getTime();
     const endTs = new Date(endDate).getTime();
     
     return data
-      .filter(item => {
-        const itemTime = item[0];
-        return itemTime >= startTs && itemTime <= endTs;
+      .filter(kline => {
+        // Binance kline format: [openTime, open, high, low, close, volume, closeTime, ...]
+        const openTime = kline[0];
+        return openTime >= startTs && openTime <= endTs;
       })
-      .map(item => {
-        const date = new Date(item[0]).toISOString().split('T')[0];
+      .map(kline => {
+        const openTime = kline[0];
+        const date = new Date(openTime).toISOString().split('T')[0];
         
         return {
           date,
-          open: item[1],
-          high: item[2],
-          low: item[3],
-          close: item[4],
-          volume: null
+          open: parseFloat(kline[1]),
+          high: parseFloat(kline[2]),
+          low: parseFloat(kline[3]),
+          close: parseFloat(kline[4]),
+          volume: parseFloat(kline[5])
         };
       })
       .sort((a, b) => a.date.localeCompare(b.date));
