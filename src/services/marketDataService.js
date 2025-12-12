@@ -7,12 +7,12 @@ class MarketDataService {
       let startTimestamp = Math.floor(new Date(startDate).getTime() / 1000);
       const endTimestamp = Math.floor(new Date(endDate).getTime() / 1000);
       
-      const cryptoCompareHistoricalLimit = Math.floor(new Date('2010-07-17').getTime() / 1000);
-      if (startTimestamp < cryptoCompareHistoricalLimit) {
-        console.warn(`⚠ CryptoCompare API only supports data from 2010-07-17 onwards`);
-        console.warn(`  Adjusting start date from ${startDate} to 2010-07-17`);
-        startDate = '2010-07-17';
-        startTimestamp = cryptoCompareHistoricalLimit;
+      const coinGeckoHistoricalLimit = Math.floor(new Date('2013-04-28').getTime() / 1000);
+      if (startTimestamp < coinGeckoHistoricalLimit) {
+        console.warn(`⚠ CoinGecko API only supports data from 2013-04-28 onwards`);
+        console.warn(`  Adjusting start date from ${startDate} to 2013-04-28`);
+        startDate = '2013-04-28';
+        startTimestamp = coinGeckoHistoricalLimit;
       }
       
       if (startTimestamp > endTimestamp) {
@@ -22,87 +22,68 @@ class MarketDataService {
       
       const daysDiff = Math.ceil((endTimestamp - startTimestamp) / (24 * 60 * 60));
       
-      if (daysDiff > 2000) {
+      if (daysDiff > 365) {
         console.log(`  📊 Large date range detected (${daysDiff} days), collecting in chunks...`);
         return await this.fetchBtcPriceDataChunked(startDate, endDate);
       }
       
-      const url = `https://min-api.cryptocompare.com/data/v2/histoday?fsym=BTC&tsym=USD&limit=${daysDiff}&toTs=${endTimestamp}`;
-      
-      console.log(`  🔄 Fetching from CryptoCompare API: ${startDate} to ${endDate} (${daysDiff} days)`);
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`CryptoCompare API error: ${response.status} ${response.statusText}`);
-      }
-      
-      const result = await response.json();
-      
-      // Check for API-level errors
-      if (result.Response === 'Error' || result.Type === 2) {
-        const errorMsg = result.Message || 'Unknown API error';
-        const errorDetails = result.ParamWithError ? ` (Parameter: ${result.ParamWithError})` : '';
-        throw new Error(`CryptoCompare API error: ${errorMsg}${errorDetails}`);
-      }
-      
-      // Validate response structure
-      if (!result.Data || !result.Data.Data || !Array.isArray(result.Data.Data)) {
-        console.error('📋 Received response structure:', JSON.stringify(result, null, 2));
-        throw new Error('Invalid response format from CryptoCompare API - expected result.Data.Data to be an array');
-      }
-      
-      console.log(`  ✓ API Response: ${result.Response || 'Success'} (Type: ${result.Type}, Data points: ${result.Data.Data.length})`);
-      
-      const dailyData = this.convertCryptoCompareToCandles(result.Data.Data, startDate);
-      
-      console.log(`  ✓ Received ${dailyData.length} days of data`);
-      
-      return dailyData;
+      return await this.fetchFromCoinGeckoOhlc(endDate, daysDiff, startDate);
     } catch (error) {
       console.error('Error fetching BTC price data:', error);
       throw error;
     }
   }
 
+  static async fetchFromCoinGeckoOhlc(endDate, daysDiff, startDate) {
+    const url = `https://api.coingecko.com/api/v3/coins/bitcoin/ohlc?vs_currency=usd&days=365&precision=2`;
+    
+    console.log(`  🔄 Fetching from CoinGecko API: ${startDate} to ${endDate} (${daysDiff} days)`);
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`CoinGecko API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    
+    // Check for error response structure (CoinGecko returns errors in status field)
+    if (result.status && result.status.error_code) {
+      const errorMsg = result.status.error_message || 'Unknown API error';
+      throw new Error(`CoinGecko API error: ${errorMsg}`);
+    }
+    
+    // Validate response structure
+    if (!Array.isArray(result)) {
+      console.error('📋 Received response structure:', JSON.stringify(result, null, 2));
+      throw new Error('Invalid response format from CoinGecko API - expected an array of OHLC data');
+    }
+    
+    console.log(`  ✓ Received ${result.length} data points from CoinGecko`);
+    
+    const dailyData = this.convertCoinGeckoToCandles(result, startDate, endDate);
+    
+    console.log(`  ✓ Processed ${dailyData.length} days of data within requested range`);
+    
+    return dailyData;
+  }
+
   static async fetchBtcPriceDataChunked(startDate, endDate) {
-    const chunks = this.splitDateRangeByDays(startDate, endDate, 1999);
+    const chunks = this.splitDateRangeByDays(startDate, endDate, 365);
     const allData = [];
     
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       console.log(`  📦 Chunk ${i + 1}/${chunks.length}: ${chunk.start} to ${chunk.end}`);
       
-      const endTs = Math.floor(new Date(chunk.end).getTime() / 1000);
-      const daysDiff = chunk.days;
-      
-      const url = `https://min-api.cryptocompare.com/data/v2/histoday?fsym=BTC&tsym=USD&limit=${daysDiff}&toTs=${endTs}`;
-      
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`CryptoCompare API error: ${response.status} ${response.statusText}`);
-      }
-      
-      const result = await response.json();
-      
-      // Check for API-level errors
-      if (result.Response === 'Error' || result.Type === 2) {
-        const errorMsg = result.Message || 'Unknown API error';
-        const errorDetails = result.ParamWithError ? ` (Parameter: ${result.ParamWithError})` : '';
-        throw new Error(`CryptoCompare API error (chunk ${i + 1}/${chunks.length}): ${errorMsg}${errorDetails}`);
-      }
-      
-      // Validate response structure
-      if (!result.Data || !result.Data.Data || !Array.isArray(result.Data.Data)) {
-        console.error('📋 Received response structure:', JSON.stringify(result, null, 2));
-        throw new Error('Invalid response format from CryptoCompare API - expected result.Data.Data to be an array');
-      }
-      
-      const dailyData = this.convertCryptoCompareToCandles(result.Data.Data, chunk.start);
-      allData.push(...dailyData);
-      
-      if (i < chunks.length - 1) {
-        await this.sleep(500);
+      try {
+        const chunkData = await this.fetchFromCoinGeckoOhlc(chunk.end, chunk.days, chunk.start);
+        allData.push(...chunkData);
+        
+        if (i < chunks.length - 1) {
+          await this.sleep(500);
+        }
+      } catch (error) {
+        throw new Error(`CoinGecko API error (chunk ${i + 1}/${chunks.length}): ${error.message}`);
       }
     }
     
@@ -153,21 +134,25 @@ class MarketDataService {
     return Array.from(uniqueMap.values()).sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  static convertCryptoCompareToCandles(data, startDate) {
-    const startTs = Math.floor(new Date(startDate).getTime() / 1000);
+  static convertCoinGeckoToCandles(data, startDate, endDate) {
+    const startTs = new Date(startDate).getTime();
+    const endTs = new Date(endDate).getTime();
     
     return data
-      .filter(item => item.time >= startTs)
+      .filter(item => {
+        const itemTime = item[0];
+        return itemTime >= startTs && itemTime <= endTs;
+      })
       .map(item => {
-        const date = new Date(item.time * 1000).toISOString().split('T')[0];
+        const date = new Date(item[0]).toISOString().split('T')[0];
         
         return {
           date,
-          open: item.open,
-          high: item.high,
-          low: item.low,
-          close: item.close,
-          volume: item.volumeto || null
+          open: item[1],
+          high: item[2],
+          low: item[3],
+          close: item[4],
+          volume: null
         };
       })
       .sort((a, b) => a.date.localeCompare(b.date));
